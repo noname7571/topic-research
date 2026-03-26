@@ -51,26 +51,81 @@ const sanitizeRawSignal = (text: string): string => {
     .trim();
 };
 
+const filterRelevantData = (data: string[], topic: string): string[] => {
+  const keywords = topic
+    .toLowerCase()
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 1);
+
+  if (keywords.length === 0) {
+    return data;
+  }
+
+  return data.filter((item) => {
+    const text = item.toLowerCase();
+    return keywords.some((keyword) => text.includes(keyword));
+  });
+};
+
 const cleanData = (data: string[]): string[] => {
   return data
     .filter((item) => item.length > 50)
-    .filter((item) => !item.includes("#"))
-    .map((item) => item.replace(/https?:\/\/\S+/g, ""));
+    .filter((item) => !item.trim().startsWith("#"))
+    .map((item) => item.replace(/https?:\/\/\S+/g, ""))
+    .map((item) => item.trim())
+    .filter(Boolean);
 };
 
-const buildRawDataBlock = (signals: DiscussionItem[]): string => {
+const buildRawDataBlock = (
+  signals: DiscussionItem[],
+  topic: string,
+): {
+  rawData: string;
+  relevanceStats: {
+    totalRows: number;
+    relevantRows: number;
+    irrelevantRatio: number;
+    dataQualityIsWeak: boolean;
+  };
+} => {
   const candidateRows = signals.slice(0, 100).map((signal) => {
     return `[${signal.platform}] ${signal.title} | ${signal.snippet} | engagement=${signal.engagement}`;
   });
 
-  const cleanedRows = cleanData(candidateRows).map((row) => sanitizeRawSignal(row));
+  const relevantRows = filterRelevantData(candidateRows, topic);
+  const rowsToClean = relevantRows.length > 0 ? relevantRows : candidateRows;
+  const cleanedRows = cleanData(rowsToClean).map((row) => sanitizeRawSignal(row));
+
+  const totalRows = candidateRows.length;
+  const relevantCount = relevantRows.length;
+  const irrelevantRatio =
+    totalRows > 0 ? (totalRows - relevantCount) / totalRows : 0;
+  const dataQualityIsWeak = irrelevantRatio > 0.3;
+
   if (cleanedRows.length === 0) {
-    return "No high-quality rows remained after preprocessing.";
+    return {
+      rawData: "No high-quality rows remained after preprocessing.",
+      relevanceStats: {
+        totalRows,
+        relevantRows: relevantCount,
+        irrelevantRatio,
+        dataQualityIsWeak: true,
+      },
+    };
   }
 
-  return cleanedRows
-    .map((row, index) => `${index + 1}. ${row}`)
-    .join("\n");
+  return {
+    rawData: cleanedRows
+      .map((row, index) => `${index + 1}. ${row}`)
+      .join("\n"),
+    relevanceStats: {
+      totalRows,
+      relevantRows: relevantCount,
+      irrelevantRatio,
+      dataQualityIsWeak,
+    },
+  };
 };
 
 export const generateAiEnhancements = async (
@@ -80,32 +135,50 @@ export const generateAiEnhancements = async (
     return null;
   }
 
-  const systemPrompt = `You are a senior internet analyst.
+  const systemPrompt = `You are an expert analyst, investor, and internet researcher.
 
-Your task is to analyze REAL online discourse and extract HIGH-SIGNAL insights.
+Your job is to do BOTH:
+1) Answer the user query directly with real knowledge.
+2) Analyze how the internet is discussing the topic.
 
-You are NOT allowed to:
-- summarize blindly
-- repeat input text
-- generate generic statements
+If the direct answer is unclear, generic, or non-practical, the output is incorrect.
 
-You MUST think critically and filter aggressively.
+STRICT RULES:
+- No generic filler.
+- No meaningless themes.
+- Ignore weak/noisy data.
+- Prioritize clarity and usefulness.
 
-Required process:
-1) Data cleaning: remove spam, hashtags, emojis, low-information content, duplicate ideas.
-2) Signal filtering: keep only strong opinions, repeated ideas, specific claims/problems.
-3) Theme extraction: 5-8 meaningful idea-level themes. Never output single-word themes.
-4) Cross-source validation: mark each theme as strong or weak.
-5) Insight generation: what people say, why it matters, what it implies.
-6) Opportunities: specific content/business/gap opportunities.
-7) Contrarian insights: where crowd assumptions may be wrong.
-8) Use web knowledge to validate/enrich weak datasets while avoiding hallucinations.
+STEP 0: Validate data relevance.
+- Remove unrelated content, spam, and weak rows.
+- If more than 30% of data is irrelevant, explicitly mark: data quality is weak.
 
-Output must be JSON only and follow the schema exactly.`;
+STEP 1: Direct answer first.
+- Provide a clear, practical, specific answer.
 
-  const rawData = buildRawDataBlock(input.topSignals);
+STEP 2-4: Discourse analysis.
+- Extract 5-7 full-idea themes from real discussions.
+- Mark signal strength and ignore weak themes.
+- Explain what people are saying, what it means, and why it matters.
 
-  const userPrompt = `INPUT\n=====\n\nTopic: ${input.topic}\n\nCollected data:\n${rawData}\n\nExpanded queries used:\n${input.expandedQueries.join(", ")}\n\nFallback analysis context:\n${JSON.stringify(
+STEP 5: Content ideas.
+- Generate specific high-quality hooks for YouTube, Twitter threads, and TikTok.
+
+STEP 6: Opportunities.
+- Generate business, tool, and product ideas from real pain points.
+
+STEP 7: Contrarian insights.
+- Identify where the crowd is wrong or overhyped.
+
+Return JSON only and follow the schema exactly.`;
+
+  const { rawData, relevanceStats } = buildRawDataBlock(input.topSignals, input.topic);
+  const relevanceSummary =
+    relevanceStats.dataQualityIsWeak || relevanceStats.relevantRows === 0
+      ? "data quality is weak"
+      : "data quality is acceptable";
+
+  const userPrompt = `INPUT\n=====\n\nUser Query: ${input.topic}\n\nCollected Data:\n${rawData}\n\nExpanded queries used:\n${input.expandedQueries.join(", ")}\n\nPreprocessing and relevance gate (already applied):\n- Total rows: ${relevanceStats.totalRows}\n- Relevant rows: ${relevanceStats.relevantRows}\n- Irrelevant ratio: ${(relevanceStats.irrelevantRatio * 100).toFixed(1)}%\n- Relevance status: ${relevanceSummary}\n\nFallback analysis context:\n${JSON.stringify(
     {
       executiveSummary: input.fallback.executiveSummary,
       topThemes: input.fallback.keyThemes.slice(0, 3),
@@ -186,7 +259,16 @@ Output must be JSON only and follow the schema exactly.`;
       return null;
     }
 
-    return parseJson<AiEnhancement>(content);
+    const parsed = parseJson<AiEnhancement>(content);
+    if (!parsed) {
+      return null;
+    }
+
+    if (relevanceStats.dataQualityIsWeak && !parsed.dataQualityNote) {
+      parsed.dataQualityNote = "data quality is weak";
+    }
+
+    return parsed;
   } catch {
     return null;
   }
