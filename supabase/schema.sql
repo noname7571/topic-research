@@ -41,32 +41,44 @@ alter table public.users enable row level security;
 alter table public.usage_logs enable row level security;
 alter table public.subscriptions enable row level security;
 
-create policy if not exists "users can read own profile"
+drop policy if exists "users can read own profile" on public.users;
+
+create policy "users can read own profile"
   on public.users
   for select
   using (auth.uid() = id);
 
-create policy if not exists "users can update own profile"
+drop policy if exists "users can update own profile" on public.users;
+
+create policy "users can update own profile"
   on public.users
   for update
   using (auth.uid() = id);
 
-create policy if not exists "users can insert own profile"
+drop policy if exists "users can insert own profile" on public.users;
+
+create policy "users can insert own profile"
   on public.users
   for insert
   with check (auth.uid() = id);
 
-create policy if not exists "users can read own usage logs"
+drop policy if exists "users can read own usage logs" on public.usage_logs;
+
+create policy "users can read own usage logs"
   on public.usage_logs
   for select
   using (auth.uid() = user_id);
 
-create policy if not exists "users can insert own usage logs"
+drop policy if exists "users can insert own usage logs" on public.usage_logs;
+
+create policy "users can insert own usage logs"
   on public.usage_logs
   for insert
   with check (auth.uid() = user_id);
 
-create policy if not exists "users can read own subscriptions"
+drop policy if exists "users can read own subscriptions" on public.subscriptions;
+
+create policy "users can read own subscriptions"
   on public.subscriptions
   for select
   using (auth.uid() = user_id);

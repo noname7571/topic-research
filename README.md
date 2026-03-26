@@ -100,6 +100,15 @@ npm install
 - Create a Supabase project.
 - Run [supabase/schema.sql](supabase/schema.sql) in SQL editor.
 - Enable Email auth provider.
+- To enable social sign-in, configure OAuth providers in Supabase Authentication:
+  - Google provider
+  - Apple provider
+  - Azure provider (used for Microsoft sign-in)
+- Add callback URL for each provider:
+  - `https://<YOUR_PROJECT_REF>.supabase.co/auth/v1/callback`
+- Add your app callback URL in Supabase redirect URLs:
+  - `http://localhost:3000/auth/callback`
+  - `https://YOUR_DOMAIN/auth/callback` (production)
 
 3. Configure Stripe:
 - Create `pro` and `premium` recurring monthly prices.
