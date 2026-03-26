@@ -8,6 +8,7 @@ import {
   buildExecutiveSummary,
   buildPlatformBreakdown,
   deriveContrarianInsights,
+  deriveContentIdeas,
   deriveOpportunities,
   deriveTrends,
 } from "./insight-generation";
@@ -32,11 +33,26 @@ const pickSampleSources = (items: DiscussionItem[]): AnalysisResult["sampleSourc
 const enrichThemeDetail = (
   themes: AnalysisResult["keyThemes"],
 ): AnalysisResult["keyThemes"] => {
+  const inferNarrative = (theme: AnalysisResult["keyThemes"][number]) => {
+    const text = `${theme.name} ${theme.summary} ${theme.whatPeopleAreSaying ?? ""}`.toLowerCase();
+    if (/fear|risk|anxiety|unsafe|scam|decline|problem/.test(text)) {
+      return "fear" as const;
+    }
+    if (/hype|viral|boom|exploding|craze|fomo/.test(text)) {
+      return "hype" as const;
+    }
+    if (/build|gap|need|demand|opportunit/.test(text)) {
+      return "opportunity" as const;
+    }
+    return "confusion" as const;
+  };
+
   return themes.map((theme) => ({
     ...theme,
     whatPeopleAreSaying:
       theme.whatPeopleAreSaying ??
       `People repeatedly discuss ${theme.name.toLowerCase()} with concrete examples and strong reactions.`,
+    narrative: theme.narrative ?? inferNarrative(theme),
     signalStrength:
       theme.signalStrength ?? (theme.volume >= 3 ? "strong" : "weak"),
     whyItMatters:
@@ -45,6 +61,9 @@ const enrichThemeDetail = (
     implication:
       theme.implication ??
       "Teams that solve this with focused execution can capture outsized attention and demand.",
+    actionLayer:
+      theme.actionLayer ??
+      "Prioritize one testable response for this theme within the next product or content sprint.",
   }));
 };
 
@@ -111,6 +130,7 @@ const normalizeSummary = (analysis: AnalysisResult): AnalysisResult => {
     keyThemes: enrichThemeDetail(analysis.keyThemes),
     opportunities: enrichOpportunityDetail(analysis.opportunities),
     contrarianInsights: enrichContrarianDetail(analysis.contrarianInsights),
+    contentIdeas: analysis.contentIdeas,
     dataQualityNote:
       analysis.dataQualityNote ??
       "Dataset quality could not be fully assessed. Re-run analysis with more source coverage.",
@@ -135,6 +155,7 @@ const buildBaseAnalysis = (
   trends: AnalysisResult["trends"],
   opportunities: AnalysisResult["opportunities"],
   contrarianInsights: AnalysisResult["contrarianInsights"],
+  contentIdeas: AnalysisResult["contentIdeas"],
   executiveSummary: AnalysisResult["executiveSummary"],
   sentimentOverview: AnalysisResult["sentimentOverview"],
 ): AnalysisResult => {
@@ -149,6 +170,7 @@ const buildBaseAnalysis = (
     trends,
     opportunities,
     contrarianInsights,
+    contentIdeas,
     sentimentOverview,
     sampleSources: pickSampleSources(items),
     dataQualityNote: inferDataQualityNote(items),
@@ -167,6 +189,7 @@ export const runAnalysisPipeline = async (topic: string): Promise<AnalysisResult
   const trends = deriveTrends(keyThemes, annotated);
   const opportunities = deriveOpportunities(topic, keyThemes, trends, sentimentOverview);
   const contrarianInsights = deriveContrarianInsights(topic, annotated, keyThemes);
+  const contentIdeas = deriveContentIdeas(topic, keyThemes, opportunities);
   const executiveSummary = buildExecutiveSummary(
     topic,
     annotated.length,
@@ -183,6 +206,7 @@ export const runAnalysisPipeline = async (topic: string): Promise<AnalysisResult
     trends,
     opportunities,
     contrarianInsights,
+    contentIdeas,
     executiveSummary,
     sentimentOverview,
   );
@@ -214,6 +238,10 @@ export const runAnalysisPipeline = async (topic: string): Promise<AnalysisResult
         aiEnhancements.contrarianInsights && aiEnhancements.contrarianInsights.length > 0
           ? aiEnhancements.contrarianInsights.slice(0, 4)
           : analysis.contrarianInsights,
+      contentIdeas:
+        aiEnhancements.contentIdeas && aiEnhancements.contentIdeas.length > 0
+          ? aiEnhancements.contentIdeas.slice(0, 10)
+          : analysis.contentIdeas,
       dataQualityNote: aiEnhancements.dataQualityNote ?? analysis.dataQualityNote,
     };
   }
