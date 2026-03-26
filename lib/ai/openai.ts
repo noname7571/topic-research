@@ -32,6 +32,7 @@ export interface AiEnhancement {
   trends?: AnalysisResult["trends"];
   opportunities?: AnalysisResult["opportunities"];
   contrarianInsights?: AnalysisResult["contrarianInsights"];
+  contentIdeas?: AnalysisResult["contentIdeas"];
   dataQualityNote?: string;
 }
 
@@ -201,10 +202,12 @@ Return JSON only and follow the schema exactly.`;
       "sentiment": "positive|neutral|negative",
       "volume": "number",
       "signalExamples": ["brief evidence phrase"],
+      "narrative": "hype|fear|opportunity|confusion",
       "whatPeopleAreSaying": "concrete statement",
       "signalStrength": "strong|weak",
       "whyItMatters": "specific impact",
-      "implication": "trend/behavior/opportunity implication"
+      "implication": "trend/behavior/opportunity implication",
+      "actionLayer": "what to do with this insight"
     }
   ],
   "trends": [
@@ -232,6 +235,14 @@ Return JSON only and follow the schema exactly.`;
       "supportingSignal": "supporting signal from discourse",
       "crowdBelief": "what most people assume",
       "whyCrowdMayBeWrong": "specific counter-logic"
+    }
+  ],
+  "contentIdeas": [
+    {
+      "title": "specific idea title",
+      "format": "youtube|twitter|tiktok",
+      "hook": "clear hook",
+      "angle": "execution angle"
     }
   ],
   "dataQualityNote": "dataset quality assessment"

@@ -6,7 +6,8 @@ export type TrendDirection = "rising" | "falling" | "stable";
 
 export type SignalStrength = "strong" | "weak";
 
-export type SubscriptionTier = "free" | "premium";
+export type PlanTier = "free" | "pro" | "premium";
+export type NarrativeLabel = "hype" | "fear" | "opportunity" | "confusion";
 
 export interface DiscussionItem {
   id: string;
@@ -36,10 +37,12 @@ export interface ThemeInsight {
   sentiment: SentimentLabel;
   volume: number;
   signalExamples: string[];
+  narrative?: NarrativeLabel;
   whatPeopleAreSaying?: string;
   signalStrength?: SignalStrength;
   whyItMatters?: string;
   implication?: string;
+  actionLayer?: string;
 }
 
 export interface PlatformInsight {
@@ -73,6 +76,13 @@ export interface ContrarianInsight {
   whyCrowdMayBeWrong?: string;
 }
 
+export interface ContentIdea {
+  title: string;
+  format: "youtube" | "twitter" | "tiktok";
+  hook: string;
+  angle: string;
+}
+
 export interface SentimentOverview {
   positive: number;
   neutral: number;
@@ -87,11 +97,28 @@ export interface SourcePreview {
 }
 
 export interface SourceAccess {
-  tier: SubscriptionTier;
+  tier: PlanTier;
   defaultVisibleCount: number;
   totalCount: number;
   hiddenCount: number;
   canViewAll: boolean;
+}
+
+export type LockedSection =
+  | "deepThemeAnalysis"
+  | "trendAnalysis"
+  | "opportunities"
+  | "contrarianInsights"
+  | "contentIdeas"
+  | "evidenceDepth";
+
+export interface AccessContext {
+  plan: PlanTier;
+  usedToday: number;
+  dailyLimit: number | null;
+  remainingToday: number | null;
+  lockedSections: LockedSection[];
+  upgradeMessage?: string;
 }
 
 export interface AnalysisResult {
@@ -105,10 +132,12 @@ export interface AnalysisResult {
   trends: TrendInsight[];
   opportunities: OpportunityInsight[];
   contrarianInsights: ContrarianInsight[];
+  contentIdeas: ContentIdea[];
   sentimentOverview: SentimentOverview;
   sampleSources: SourcePreview[];
   dataQualityNote?: string;
   sourceAccess?: SourceAccess;
+  accessContext?: AccessContext;
 }
 
 export interface PipelineResult {

@@ -3,7 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 
 interface TopicSearchFormProps {
-  onAnalyze: (topic: string, premiumAccessToken?: string) => Promise<void>;
+  onAnalyze: (topic: string) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -17,7 +17,6 @@ const suggestedTopics = [
 
 export function TopicSearchForm({ onAnalyze, isLoading }: TopicSearchFormProps) {
   const [topic, setTopic] = useState("");
-  const [premiumAccessToken, setPremiumAccessToken] = useState("");
 
   const isDisabled = useMemo(() => {
     return isLoading || topic.trim().length < 2;
@@ -28,7 +27,7 @@ export function TopicSearchForm({ onAnalyze, isLoading }: TopicSearchFormProps) 
     if (isDisabled) {
       return;
     }
-    await onAnalyze(topic.trim(), premiumAccessToken.trim() || undefined);
+    await onAnalyze(topic.trim());
   };
 
   return (
@@ -55,22 +54,6 @@ export function TopicSearchForm({ onAnalyze, isLoading }: TopicSearchFormProps) 
           </button>
         </div>
       </form>
-
-      <details className="mt-4 rounded-2xl border border-slate-200 bg-white/70 p-3">
-        <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-600">
-          Premium access
-        </summary>
-        <p className="mt-2 text-xs leading-5 text-slate-500">
-          If you have a premium access code, enter it to unlock full source visibility.
-        </p>
-        <input
-          type="password"
-          value={premiumAccessToken}
-          onChange={(event) => setPremiumAccessToken(event.target.value)}
-          placeholder="Premium access code"
-          className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-        />
-      </details>
 
       <div className="mt-4 flex flex-wrap gap-2">
         {suggestedTopics.map((suggestion) => (

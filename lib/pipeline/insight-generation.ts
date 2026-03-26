@@ -1,4 +1,5 @@
 import {
+  ContentIdea,
   ContrarianInsight,
   DiscussionItem,
   ExecutiveSummary,
@@ -128,6 +129,37 @@ export const deriveOpportunities = (
   }
 
   return opportunities.slice(0, 4);
+};
+
+export const deriveContentIdeas = (
+  topic: string,
+  themes: ThemeInsight[],
+  opportunities: OpportunityInsight[],
+): ContentIdea[] => {
+  const primaryTheme = themes[0]?.name ?? topic;
+  const secondaryTheme = themes[1]?.name ?? "execution gaps";
+  const topOpportunity = opportunities[0]?.title ?? `Build around ${primaryTheme}`;
+
+  return [
+    {
+      title: `Why ${primaryTheme} is being misunderstood in 2026`,
+      format: "youtube",
+      hook: `Most people discussing ${primaryTheme.toLowerCase()} are optimizing the wrong metric.`,
+      angle: "Break down what discourse says vs what demand signals actually imply.",
+    },
+    {
+      title: `The hidden pain behind ${secondaryTheme}`,
+      format: "twitter",
+      hook: "7 patterns from real conversations that explain why current solutions underperform.",
+      angle: "Thread using examples from high-engagement posts and clear takeaways.",
+    },
+    {
+      title: `${topOpportunity} in 30 days`,
+      format: "tiktok",
+      hook: "If I had to launch this from zero, here is the exact fast path.",
+      angle: "Fast execution blueprint with audience + messaging + validation loop.",
+    },
+  ];
 };
 
 export const deriveContrarianInsights = (

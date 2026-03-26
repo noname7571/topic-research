@@ -1,11 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { OpportunityCard } from "@/components/intelligence/opportunity-card";
 import { InsightCard } from "@/components/intelligence/insight-card";
 import { ThemeCard } from "@/components/intelligence/theme-card";
-import { AnalysisResult, SourcePreview } from "@/lib/types";
+import { AnalysisResult, LockedSection, SourcePreview } from "@/lib/types";
 
 interface AnalysisDashboardProps {
   analysis: AnalysisResult;
@@ -48,6 +49,11 @@ const buildCopyPayload = (analysis: AnalysisResult): string => {
     .map((item) => `- ${item.title}: ${item.rationale}`)
     .join("\n");
 
+  const contentIdeas = analysis.contentIdeas
+    .slice(0, 5)
+    .map((item) => `- [${item.format}] ${item.title}: ${item.hook}`)
+    .join("\n");
+
   return [
     `Topic: ${analysis.topic}`,
     "",
@@ -64,8 +70,32 @@ const buildCopyPayload = (analysis: AnalysisResult): string => {
     "",
     "Contrarian insights:",
     contrarian,
+    "",
+    "Content ideas:",
+    contentIdeas,
   ].join("\n");
 };
+
+const isSectionLocked = (analysis: AnalysisResult, section: LockedSection): boolean => {
+  return analysis.accessContext?.lockedSections.includes(section) ?? false;
+};
+
+function LockedOverlay({ title }: { title: string }) {
+  return (
+    <div className="absolute inset-0 z-10 flex items-center justify-center rounded-3xl bg-white/70 backdrop-blur-[2px]">
+      <div className="mx-4 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-center shadow-sm">
+        <p className="text-sm font-semibold text-slate-900">{title} locked on Free</p>
+        <p className="mt-1 text-xs text-slate-600">Upgrade to unlock full analysis depth.</p>
+        <Link
+          href="/pricing"
+          className="mt-3 inline-flex rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white"
+        >
+          Unlock full analysis
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 export function AnalysisDashboard({
   analysis,
@@ -100,6 +130,11 @@ export function AnalysisDashboard({
 
   const totalSources = analysis.sourceAccess?.totalCount ?? analysis.sampleSources.length;
   const hiddenSourceCount = Math.max(0, totalSources - defaultVisibleCount);
+  const trendLocked = isSectionLocked(analysis, "trendAnalysis");
+  const opportunitiesLocked = isSectionLocked(analysis, "opportunities");
+  const contrarianLocked = isSectionLocked(analysis, "contrarianInsights");
+  const contentLocked = isSectionLocked(analysis, "contentIdeas");
+  const evidenceLocked = isSectionLocked(analysis, "evidenceDepth");
 
   const riskLine =
     analysis.contrarianInsights[0]?.rationale ??
@@ -158,6 +193,11 @@ export function AnalysisDashboard({
               <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 font-semibold text-slate-700">
                 {analysis.executiveSummary.confidence}% confidence
               </span>
+              {analysis.accessContext ? (
+                <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 font-semibold text-slate-700">
+                  {analysis.accessContext.plan.toUpperCase()} plan
+                </span>
+              ) : null}
             </div>
           </div>
 
@@ -238,7 +278,50 @@ export function AnalysisDashboard({
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="relative space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-bold text-slate-950">Trend Analysis</h3>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Signal score 0-100
+          </p>
+        </div>
+
+        <div className={`${trendLocked ? "pointer-events-none blur-[2px]" : ""}`}>
+          <div className="grid gap-3 md:grid-cols-2">
+            {(analysis.trends.length > 0
+              ? analysis.trends.slice(0, 4)
+              : [
+                  {
+                    name: "Locked trend intelligence",
+                    direction: "stable",
+                    signalStrength: 0,
+                    reason: "Upgrade to unlock full trend movement analysis.",
+                  },
+                ]
+            ).map((trend) => (
+              <article
+                key={`${trend.name}-${trend.direction}`}
+                className="rounded-2xl border border-slate-200 bg-white p-4"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <h4 className="text-base font-semibold text-slate-900">{trend.name}</h4>
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                    Score {trend.signalStrength}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs uppercase tracking-wide text-slate-500">
+                  {trend.direction} signal
+                </p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">{trend.reason}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+
+        {trendLocked ? <LockedOverlay title="Trend analysis" /> : null}
+      </section>
+
+      <section className="relative space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-xl font-bold text-slate-950">Opportunities</h3>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -246,14 +329,28 @@ export function AnalysisDashboard({
           </p>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          {analysis.opportunities.slice(0, 4).map((opportunity) => (
+        <div className={`grid gap-4 lg:grid-cols-2 ${opportunitiesLocked ? "pointer-events-none blur-[2px]" : ""}`}>
+          {(analysis.opportunities.length > 0
+            ? analysis.opportunities.slice(0, 4)
+            : [
+                {
+                  title: "Locked opportunity analysis",
+                  rationale: "Upgrade to unlock actionable opportunities from discourse pain points.",
+                  confidence: 0,
+                  whyNow: "Pro and Premium only",
+                  executionIdea: "Use pricing to unlock this section",
+                  audience: "Members on paid plans",
+                },
+              ]
+          ).map((opportunity) => (
             <OpportunityCard key={opportunity.title} opportunity={opportunity} />
           ))}
         </div>
+
+        {opportunitiesLocked ? <LockedOverlay title="Opportunities" /> : null}
       </section>
 
-      <section className="space-y-4">
+      <section className="relative space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-xl font-bold text-slate-950">Contrarian Insights</h3>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -261,8 +358,19 @@ export function AnalysisDashboard({
           </p>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          {analysis.contrarianInsights.slice(0, 3).map((insight) => (
+        <div className={`grid gap-4 lg:grid-cols-3 ${contrarianLocked ? "pointer-events-none blur-[2px]" : ""}`}>
+          {(analysis.contrarianInsights.length > 0
+            ? analysis.contrarianInsights.slice(0, 3)
+            : [
+                {
+                  title: "Contrarian intelligence locked",
+                  rationale: "Upgrade to see where crowd consensus may be misleading.",
+                  supportingSignal: "Paid plans unlock this section",
+                  crowdBelief: "Consensus is enough",
+                  whyCrowdMayBeWrong: "The best opportunities often appear in minority narratives.",
+                },
+              ]
+          ).map((insight) => (
             <article
               key={insight.title}
               className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
@@ -280,10 +388,44 @@ export function AnalysisDashboard({
             </article>
           ))}
         </div>
+
+        {contrarianLocked ? <LockedOverlay title="Contrarian insights" /> : null}
       </section>
 
-      <section className="glass-panel rounded-3xl p-6">
-        <details>
+      <section className="relative space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-bold text-slate-950">Content Engine</h3>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            YouTube, Twitter, TikTok hooks
+          </p>
+        </div>
+
+        <div className={`grid gap-4 lg:grid-cols-3 ${contentLocked ? "pointer-events-none blur-[2px]" : ""}`}>
+          {(analysis.contentIdeas.length > 0
+            ? analysis.contentIdeas.slice(0, 9)
+            : [
+                {
+                  title: "Content ideas locked",
+                  format: "youtube",
+                  hook: "Upgrade to unlock discourse-backed content hooks.",
+                  angle: "Paid plans get full content engine output.",
+                },
+              ]
+          ).map((idea) => (
+            <article key={`${idea.format}-${idea.title}`} className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{idea.format}</p>
+              <h4 className="mt-1 text-base font-semibold text-slate-900">{idea.title}</h4>
+              <p className="mt-2 text-sm leading-6 text-slate-700">{idea.hook}</p>
+              <p className="mt-2 text-xs text-slate-500">Angle: {idea.angle}</p>
+            </article>
+          ))}
+        </div>
+
+        {contentLocked ? <LockedOverlay title="Content engine" /> : null}
+      </section>
+
+      <section className="glass-panel relative rounded-3xl p-6">
+        <details className={evidenceLocked ? "pointer-events-none blur-[2px]" : ""}>
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
             <div>
               <h3 className="text-lg font-semibold text-slate-900">
@@ -328,11 +470,15 @@ export function AnalysisDashboard({
 
             {!analysis.sourceAccess?.canViewAll && (analysis.sourceAccess?.hiddenCount ?? 0) > 0 ? (
               <p className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-                Free tier shows {analysis.sourceAccess?.defaultVisibleCount} sources. Upgrade to unlock {analysis.sourceAccess?.hiddenCount} more.
+                {analysis.accessContext?.plan === "free"
+                  ? `Free tier shows ${analysis.sourceAccess?.defaultVisibleCount} sources. Upgrade to unlock ${analysis.sourceAccess?.hiddenCount} more.`
+                  : `This plan shows ${analysis.sourceAccess?.defaultVisibleCount} sources by default. Upgrade for deeper evidence access.`}
               </p>
             ) : null}
           </div>
         </details>
+
+        {evidenceLocked ? <LockedOverlay title="Extended evidence" /> : null}
       </section>
     </section>
   );
