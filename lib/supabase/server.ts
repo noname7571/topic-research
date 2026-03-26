@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 import { APP_CONFIG } from "@/lib/config";
-import { Database } from "@/lib/supabase/database.types";
+import type { Database } from "./database.types";
 
 export const createSupabaseServerClient = async () => {
   if (!APP_CONFIG.supabaseUrl || !APP_CONFIG.supabaseAnonKey) {

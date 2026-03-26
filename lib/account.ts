@@ -8,7 +8,7 @@ import {
   PLAN_LOCKED_SECTIONS,
 } from "@/lib/billing/plans";
 import { APP_CONFIG } from "@/lib/config";
-import { Database } from "@/lib/supabase/database.types";
+import type { Database } from "./supabase/database.types";
 import { AccessContext, AnalysisResult, PlanTier } from "@/lib/types";
 
 type UserProfileRow = Database["public"]["Tables"]["users"]["Row"];
