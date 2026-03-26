@@ -1,7 +1,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 
 import { APP_CONFIG } from "@/lib/config";
-import { Database } from "@/lib/supabase/database.types";
+import type { Database } from "./database.types";
 
 export const createSupabaseBrowserClient = () => {
   if (!APP_CONFIG.supabaseUrl || !APP_CONFIG.supabaseAnonKey) {
