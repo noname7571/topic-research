@@ -5,6 +5,7 @@ import { AnalysisResult, DiscussionItem } from "@/lib/types";
 import { clusterThemes } from "./clustering";
 import { filterNoise } from "./filtering";
 import {
+  deriveActionSimulator,
   buildExecutiveSummary,
   buildPlatformBreakdown,
   deriveContrarianRadar,
@@ -134,6 +135,7 @@ const normalizeSummary = (analysis: AnalysisResult): AnalysisResult => {
     contrarianInsights: enrichContrarianDetail(analysis.contrarianInsights),
     contrarianRadar: analysis.contrarianRadar ?? [],
     sourceCredibility: analysis.sourceCredibility ?? [],
+    actionSimulator: analysis.actionSimulator ?? [],
     contentIdeas: analysis.contentIdeas,
     dataQualityNote:
       analysis.dataQualityNote ??
@@ -161,6 +163,7 @@ const buildBaseAnalysis = (
   contrarianInsights: AnalysisResult["contrarianInsights"],
   contrarianRadar: AnalysisResult["contrarianRadar"],
   sourceCredibility: AnalysisResult["sourceCredibility"],
+  actionSimulator: AnalysisResult["actionSimulator"],
   contentIdeas: AnalysisResult["contentIdeas"],
   executiveSummary: AnalysisResult["executiveSummary"],
   sentimentOverview: AnalysisResult["sentimentOverview"],
@@ -178,6 +181,7 @@ const buildBaseAnalysis = (
     contrarianInsights,
     contrarianRadar,
     sourceCredibility,
+    actionSimulator,
     contentIdeas,
     sentimentOverview,
     sampleSources: pickSampleSources(items),
@@ -199,6 +203,13 @@ export const runAnalysisPipeline = async (topic: string): Promise<AnalysisResult
   const contrarianInsights = deriveContrarianInsights(topic, annotated, keyThemes);
   const contrarianRadar = deriveContrarianRadar(keyThemes, trends, annotated);
   const sourceCredibility = deriveSourceCredibility(annotated);
+  const actionSimulator = deriveActionSimulator(
+    topic,
+    keyThemes,
+    trends,
+    opportunities,
+    sentimentOverview,
+  );
   const contentIdeas = deriveContentIdeas(topic, keyThemes, opportunities);
   const executiveSummary = buildExecutiveSummary(
     topic,
@@ -218,6 +229,7 @@ export const runAnalysisPipeline = async (topic: string): Promise<AnalysisResult
     contrarianInsights,
     contrarianRadar,
     sourceCredibility,
+    actionSimulator,
     contentIdeas,
     executiveSummary,
     sentimentOverview,
@@ -257,6 +269,17 @@ export const runAnalysisPipeline = async (topic: string): Promise<AnalysisResult
       dataQualityNote: aiEnhancements.dataQualityNote ?? analysis.dataQualityNote,
     };
   }
+
+  analysis = {
+    ...analysis,
+    actionSimulator: deriveActionSimulator(
+      topic,
+      analysis.keyThemes,
+      analysis.trends,
+      analysis.opportunities,
+      analysis.sentimentOverview,
+    ),
+  };
 
   return normalizeSummary(withDerivedDataQualityNote(analysis, annotated));
 };

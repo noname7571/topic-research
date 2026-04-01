@@ -1,4 +1,6 @@
 import {
+  ActionSimulation,
+  AudienceReaction,
   ContrarianRadarSignal,
   ContentIdea,
   ContrarianInsight,
@@ -324,6 +326,210 @@ export const deriveSourceCredibility = (
         : right.credibilityScore - left.credibilityScore;
     })
     .slice(0, 8);
+};
+
+const reactionFromScore = (score: number): AudienceReaction => {
+  if (score >= 66) {
+    return "positive";
+  }
+  if (score >= 45) {
+    return "mixed";
+  }
+  return "negative";
+};
+
+const channelFromAngle = (
+  angle: string,
+  index: number,
+): ActionSimulation["channel"] => {
+  const lower = angle.toLowerCase();
+  if (/youtube|video|short/.test(lower)) {
+    return "youtube";
+  }
+  if (/twitter|thread|x\b/.test(lower)) {
+    return "twitter";
+  }
+  if (/tiktok|reel/.test(lower)) {
+    return "tiktok";
+  }
+  if (/linkedin/.test(lower)) {
+    return "linkedin";
+  }
+
+  const fallbackChannels: Array<ActionSimulation["channel"]> = [
+    "twitter",
+    "youtube",
+    "landing-page",
+  ];
+  return fallbackChannels[index] ?? "landing-page";
+};
+
+const segmentReason = (
+  segment: string,
+  reaction: AudienceReaction,
+  angle: string,
+): string => {
+  const conciseAngle = angle.length > 90 ? `${angle.slice(0, 87)}...` : angle;
+  if (reaction === "positive") {
+    return `${segment} are likely to engage because the angle feels concrete and directly useful: "${conciseAngle}".`;
+  }
+  if (reaction === "mixed") {
+    return `${segment} may need stronger proof points before fully aligning with this angle.`;
+  }
+  return `${segment} are likely to challenge this framing unless it includes tighter evidence and clearer tradeoffs.`;
+};
+
+const scoreSegmentReaction = (
+  segment: string,
+  angle: string,
+  baseSupport: number,
+): number => {
+  const lower = angle.toLowerCase();
+  const evidenceKeywords = /proof|case study|example|benchmark|roi|before\/after|data|step-by-step|workflow/;
+  const hypeKeywords = /revolution|insane|crazy|massive|everyone|guarantee|secret/;
+  const nuanceKeywords = /tradeoff|risk|limit|constraint|assumption|validation/;
+  const creatorKeywords = /content|hook|story|trend|viral|post|thread|video/;
+
+  let score = baseSupport;
+
+  if (segment === "Pragmatic buyers") {
+    if (evidenceKeywords.test(lower)) {
+      score += 14;
+    }
+    if (hypeKeywords.test(lower)) {
+      score -= 12;
+    }
+  }
+
+  if (segment === "Power users") {
+    if (/build|operator|stack|api|system|execution|playbook|framework/.test(lower)) {
+      score += 12;
+    }
+    if (creatorKeywords.test(lower)) {
+      score += 5;
+    }
+  }
+
+  if (segment === "Skeptics") {
+    if (nuanceKeywords.test(lower)) {
+      score += 15;
+    }
+    if (hypeKeywords.test(lower)) {
+      score -= 16;
+    }
+  }
+
+  return clamp(Math.round(score), 5, 95);
+};
+
+export const deriveActionSimulator = (
+  topic: string,
+  themes: ThemeInsight[],
+  trends: TrendInsight[],
+  opportunities: OpportunityInsight[],
+  sentiment: SentimentOverview,
+): ActionSimulation[] => {
+  const totalMentions = Math.max(
+    1,
+    sentiment.positive + sentiment.neutral + sentiment.negative,
+  );
+  const positiveRatio = sentiment.positive / totalMentions;
+  const negativeRatio = sentiment.negative / totalMentions;
+  const topTrend = trends[0];
+  const trendBoost =
+    topTrend?.direction === "rising" ? 8 : topTrend?.direction === "falling" ? -8 : 0;
+
+  const baseSupport = clamp(
+    Math.round(50 + (positiveRatio - negativeRatio) * 32 + trendBoost),
+    18,
+    82,
+  );
+
+  const scenarioSeeds =
+    opportunities.length > 0
+      ? opportunities.slice(0, 3).map((opportunity, index) => ({
+          angle:
+            opportunity.executionIdea ??
+            `Publish a focused angle around ${opportunity.title.toLowerCase()}.`,
+          fallbackTheme: themes[index]?.name ?? themes[0]?.name ?? topic,
+        }))
+      : [
+          {
+            angle: `Publish a proof-first angle on ${themes[0]?.name ?? topic} with concrete outcomes and tradeoffs.`,
+            fallbackTheme: themes[0]?.name ?? topic,
+          },
+        ];
+
+  const segments = ["Pragmatic buyers", "Power users", "Skeptics"];
+
+  return scenarioSeeds.map((seed, index) => {
+    const angle = seed.angle;
+    const channel = channelFromAngle(angle, index);
+    const audienceReactions = segments.map((segment) => {
+      const score = scoreSegmentReaction(segment, angle, baseSupport);
+      const reaction = reactionFromScore(score);
+      const confidence = clamp(55 + Math.abs(score - 50), 55, 90);
+
+      return {
+        segment,
+        reaction,
+        confidence,
+        reason: segmentReason(segment, reaction, angle),
+      };
+    });
+
+    const averageReactionScore = average(
+      audienceReactions.map((item) => {
+        if (item.reaction === "positive") {
+          return 80;
+        }
+        if (item.reaction === "mixed") {
+          return 55;
+        }
+        return 30;
+      }),
+    );
+
+    const upsideScore = clamp(
+      Math.round(averageReactionScore + (topTrend?.signalStrength ?? 45) * 0.15),
+      0,
+      100,
+    );
+    const skepticConfidence =
+      audienceReactions.find((item) => item.segment === "Skeptics")?.confidence ?? 60;
+    const skepticReaction =
+      audienceReactions.find((item) => item.segment === "Skeptics")?.reaction ?? "mixed";
+    const backlashRisk = clamp(
+      Math.round(
+        100 -
+          (skepticReaction === "positive"
+            ? 76
+            : skepticReaction === "mixed"
+              ? 54
+              : 32) +
+          (90 - skepticConfidence) * 0.2,
+      ),
+      8,
+      92,
+    );
+
+    const recommendation =
+      backlashRisk > upsideScore
+        ? `Reframe this ${channel} angle with stronger evidence and explicit tradeoffs before publishing.`
+        : `Ship this ${channel} angle with one concrete proof element and audience-specific CTA.`;
+
+    return {
+      angle,
+      channel,
+      audienceReactions,
+      upsideScore,
+      backlashRisk,
+      recommendation:
+        themes.length > 0
+          ? `${recommendation} Anchor it to ${seed.fallbackTheme.toLowerCase()} discussion patterns.`
+          : recommendation,
+    } satisfies ActionSimulation;
+  });
 };
 
 export const buildPlatformBreakdown = (items: DiscussionItem[]): PlatformInsight[] => {

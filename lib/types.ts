@@ -104,6 +104,24 @@ export interface SourceCredibilityInsight {
   rationale: string;
 }
 
+export type AudienceReaction = "positive" | "mixed" | "negative";
+
+export interface AudienceReactionForecast {
+  segment: string;
+  reaction: AudienceReaction;
+  confidence: number;
+  reason: string;
+}
+
+export interface ActionSimulation {
+  angle: string;
+  channel: "youtube" | "twitter" | "tiktok" | "linkedin" | "landing-page";
+  audienceReactions: AudienceReactionForecast[];
+  upsideScore: number;
+  backlashRisk: number;
+  recommendation: string;
+}
+
 export interface ContentIdea {
   title: string;
   format: "youtube" | "twitter" | "tiktok";
@@ -137,6 +155,7 @@ export type LockedSection =
   | "trendAnalysis"
   | "opportunities"
   | "contrarianInsights"
+  | "actionSimulator"
   | "contentIdeas"
   | "evidenceDepth";
 
@@ -162,6 +181,7 @@ export interface AnalysisResult {
   contrarianInsights: ContrarianInsight[];
   contrarianRadar: ContrarianRadarSignal[];
   sourceCredibility: SourceCredibilityInsight[];
+  actionSimulator: ActionSimulation[];
   contentIdeas: ContentIdea[];
   sentimentOverview: SentimentOverview;
   sampleSources: SourcePreview[];
