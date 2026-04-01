@@ -197,10 +197,20 @@ const buildBaseAnalysis = (
   };
 };
 
-export const runAnalysisPipeline = async (topic: string): Promise<AnalysisResult> => {
+interface AnalysisPipelineOptions {
+  memoryItems?: DiscussionItem[];
+}
+
+export const runAnalysisPipeline = async (
+  topic: string,
+  options: AnalysisPipelineOptions = {},
+): Promise<AnalysisResult> => {
   const expandedQueries = expandQueries(topic);
-  const retrieved = await fetchDiscussions(topic, expandedQueries);
-  const filtered = filterNoise(retrieved);
+  const retrieved = await fetchDiscussions(topic, expandedQueries, options.memoryItems ?? []);
+  const filtered = filterNoise(retrieved, {
+    topic,
+    expandedQueries,
+  });
   const annotated = annotateSentiment(filtered);
 
   const sentimentOverview = summarizeSentiment(annotated);

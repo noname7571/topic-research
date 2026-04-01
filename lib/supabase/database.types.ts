@@ -106,6 +106,125 @@ export type Database = {
           },
         ];
       };
+      analysis_interactions: {
+        Row: {
+          id: string;
+          user_id: string;
+          topic: string;
+          normalized_topic: string;
+          request_payload: Json;
+          analysis_payload: Json | null;
+          retrieval_payload: Json | null;
+          status: string;
+          source_count: number;
+          error_message: string | null;
+          approved: boolean | null;
+          feedback_note: string | null;
+          feedback_labels: string[];
+          completed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          topic: string;
+          normalized_topic: string;
+          request_payload?: Json;
+          analysis_payload?: Json | null;
+          retrieval_payload?: Json | null;
+          status?: string;
+          source_count?: number;
+          error_message?: string | null;
+          approved?: boolean | null;
+          feedback_note?: string | null;
+          feedback_labels?: string[];
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          topic?: string;
+          normalized_topic?: string;
+          request_payload?: Json;
+          analysis_payload?: Json | null;
+          retrieval_payload?: Json | null;
+          status?: string;
+          source_count?: number;
+          error_message?: string | null;
+          approved?: boolean | null;
+          feedback_note?: string | null;
+          feedback_labels?: string[];
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "analysis_interactions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      retrieval_memories: {
+        Row: {
+          id: number;
+          user_id: string;
+          interaction_id: string;
+          topic: string;
+          normalized_topic: string;
+          memory_summary: string;
+          confidence: number;
+          memory_payload: Json;
+          approved_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: never;
+          user_id: string;
+          interaction_id: string;
+          topic: string;
+          normalized_topic: string;
+          memory_summary: string;
+          confidence?: number;
+          memory_payload?: Json;
+          approved_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: never;
+          user_id?: string;
+          interaction_id?: string;
+          topic?: string;
+          normalized_topic?: string;
+          memory_summary?: string;
+          confidence?: number;
+          memory_payload?: Json;
+          approved_at?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "retrieval_memories_interaction_id_fkey";
+            columns: ["interaction_id"];
+            isOneToOne: true;
+            referencedRelation: "analysis_interactions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "retrieval_memories_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;

@@ -3,9 +3,16 @@ import { NextResponse } from "next/server";
 import { applyPlanGating, getAccountSnapshot, logUsageEvent } from "@/lib/account";
 import { getRemainingSearches } from "@/lib/billing/plans";
 import { APP_CONFIG } from "@/lib/config";
+import {
+  completeAnalysisInteraction,
+  failAnalysisInteraction,
+  fetchRetrievalMemoryItems,
+  startAnalysisInteraction,
+} from "@/lib/learning";
 import { runAnalysisPipeline } from "@/lib/pipeline";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCachedAnalysis, setCachedAnalysis } from "@/lib/storage/cache";
+import { AnalysisResult } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -22,6 +29,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  let interactionId: string | null = null;
+  let userId: string | null = null;
+
   try {
     const payload = (await request.json()) as AnalyzeRequest;
     const topic = payload.topic?.trim();
@@ -39,6 +49,7 @@ export async function POST(request: Request) {
         { status: 401 },
       );
     }
+    userId = user.id;
 
     if (!topic || topic.length < 2) {
       return NextResponse.json(
@@ -60,6 +71,11 @@ export async function POST(request: Request) {
       );
     }
 
+    interactionId = await startAnalysisInteraction(supabase, user.id, topic, {
+      topic,
+      requestedAt: new Date().toISOString(),
+    });
+
     await logUsageEvent(supabase, user.id, topic);
 
     const accountAfterUsage = {
@@ -73,22 +89,70 @@ export async function POST(request: Request) {
 
     const cached = getCachedAnalysis(topic, APP_CONFIG.cacheTtlMinutes);
     if (cached) {
+      const cachedAnalysis: AnalysisResult = {
+        ...cached,
+        fromCache: true,
+      };
       const cachedResponsePayload = applyPlanGating(
         {
-          ...cached,
-          fromCache: true,
+          ...cachedAnalysis,
         },
         accountAfterUsage,
       );
-      return NextResponse.json(cachedResponsePayload);
+
+      if (interactionId) {
+        await completeAnalysisInteraction(
+          supabase,
+          user.id,
+          interactionId,
+          cachedAnalysis,
+          {
+            fromCache: true,
+            memoryItemsUsed: 0,
+          },
+        );
+      }
+
+      return NextResponse.json({
+        ...cachedResponsePayload,
+        interactionId: interactionId ?? undefined,
+      });
     }
 
-    const analysis = await runAnalysisPipeline(topic);
+    const memoryItems = await fetchRetrievalMemoryItems(supabase, user.id, topic);
+    const analysis = await runAnalysisPipeline(topic, {
+      memoryItems,
+    });
     setCachedAnalysis(topic, analysis);
 
     const tieredPayload = applyPlanGating(analysis, accountAfterUsage);
-    return NextResponse.json(tieredPayload);
-  } catch {
+
+    if (interactionId) {
+      await completeAnalysisInteraction(supabase, user.id, interactionId, analysis, {
+        fromCache: false,
+        memoryItemsUsed: memoryItems.length,
+      });
+    }
+
+    return NextResponse.json({
+      ...tieredPayload,
+      interactionId: interactionId ?? undefined,
+    });
+  } catch (error) {
+    if (interactionId && userId) {
+      try {
+        const supabase = await createSupabaseServerClient();
+        await failAnalysisInteraction(
+          supabase,
+          userId,
+          interactionId,
+          error instanceof Error ? error.message : "Unknown analysis error",
+        );
+      } catch {
+        // ignore interaction logging failures during error reporting
+      }
+    }
+
     return NextResponse.json(
       {
         error: "Unable to analyze this topic right now. Try again in a moment.",
