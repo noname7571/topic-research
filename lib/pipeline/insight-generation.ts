@@ -1,10 +1,12 @@
 import {
+  ContrarianRadarSignal,
   ContentIdea,
   ContrarianInsight,
   DiscussionItem,
   ExecutiveSummary,
   OpportunityInsight,
   PlatformInsight,
+  SourceCredibilityInsight,
   SentimentOverview,
   ThemeInsight,
   TrendInsight,
@@ -26,6 +28,302 @@ const recencyWeight = (publishedAt: string): number => {
     (Date.now() - new Date(publishedAt).getTime()) / (1000 * 60 * 60 * 24),
   );
   return Math.max(0, 1 - ageDays / 30);
+};
+
+const clamp = (value: number, min: number, max: number): number => {
+  return Math.max(min, Math.min(max, value));
+};
+
+const expertSignalScore = (item: DiscussionItem): number => {
+  const text = `${item.title} ${item.snippet} ${item.author ?? ""} ${item.source}`.toLowerCase();
+  let score = 36;
+
+  if (item.platform === "news") {
+    score += 24;
+  } else if (item.platform === "web") {
+    score += 12;
+  } else if (item.platform === "youtube") {
+    score += 6;
+  }
+
+  if (/analyst|research|operator|founder|engineer|investor|vc|study|report|data/.test(text)) {
+    score += 16;
+  }
+
+  if ((item.commentCount ?? 0) >= 25) {
+    score += 10;
+  }
+
+  if (item.engagement >= 900) {
+    score += 12;
+  }
+
+  return clamp(score, 10, 100);
+};
+
+const relatedThemeItems = (items: DiscussionItem[], themeName: string): DiscussionItem[] => {
+  const normalizedTheme = themeName.toLowerCase();
+  const related = items.filter((item) =>
+    `${item.title} ${item.snippet}`.toLowerCase().includes(normalizedTheme),
+  );
+  if (related.length > 0) {
+    return related;
+  }
+
+  return [...items]
+    .sort((left, right) => right.engagement - left.engagement)
+    .slice(0, Math.min(5, items.length));
+};
+
+const sentimentBiasLabel = (
+  sentiment: ThemeInsight["sentiment"],
+): ContrarianRadarSignal["sentimentBias"] => {
+  if (sentiment === "negative") {
+    return "crowd-negative";
+  }
+  if (sentiment === "positive") {
+    return "crowd-positive";
+  }
+  return "crowd-neutral";
+};
+
+const sentimentSkepticismScore = (sentiment: ThemeInsight["sentiment"]): number => {
+  if (sentiment === "negative") {
+    return 88;
+  }
+  if (sentiment === "neutral") {
+    return 62;
+  }
+  return 34;
+};
+
+export const deriveContrarianRadar = (
+  themes: ThemeInsight[],
+  trends: TrendInsight[],
+  items: DiscussionItem[],
+): ContrarianRadarSignal[] => {
+  const trendsByName = new Map(
+    trends.map((trend) => [trend.name.toLowerCase(), trend] as const),
+  );
+
+  return themes
+    .slice(0, 5)
+    .map((theme) => {
+      const trend = trendsByName.get(theme.name.toLowerCase());
+      const relatedItems = relatedThemeItems(items, theme.name);
+      const expertEngagement = average(relatedItems.map((item) => expertSignalScore(item)));
+
+      const velocityBase = trend?.signalStrength ?? 45;
+      const velocityDirectionBoost =
+        trend?.direction === "rising" ? 18 : trend?.direction === "falling" ? -20 : 0;
+      const velocityScore = clamp(velocityBase + velocityDirectionBoost, 0, 100);
+
+      const skepticismScore = sentimentSkepticismScore(theme.sentiment);
+      const contrarianScore = clamp(
+        Math.round(skepticismScore * 0.4 + velocityScore * 0.35 + expertEngagement * 0.25),
+        0,
+        100,
+      );
+
+      const opportunityLevel: ContrarianRadarSignal["opportunityLevel"] =
+        contrarianScore >= 74 ? "high" : contrarianScore >= 56 ? "medium" : "watch";
+
+      const bias = sentimentBiasLabel(theme.sentiment);
+      const rationale =
+        bias === "crowd-negative"
+          ? "Crowd sentiment is skeptical, but velocity and expert engagement indicate a possible upside mismatch."
+          : bias === "crowd-neutral"
+            ? "Conversation is indecisive while informed participants are increasingly active, creating asymmetry."
+            : "Momentum is rising despite optimism fatigue, suggesting a focused niche angle can still outperform.";
+
+      return {
+        theme: theme.name,
+        contrarianScore,
+        opportunityLevel,
+        sentimentBias: bias,
+        velocityScore,
+        expertEngagementScore: Math.round(expertEngagement),
+        rationale,
+      } satisfies ContrarianRadarSignal;
+    })
+    .sort((left, right) => right.contrarianScore - left.contrarianScore)
+    .slice(0, 4);
+};
+
+const platformTrustBaseline: Record<DiscussionItem["platform"], number> = {
+  news: 74,
+  web: 61,
+  youtube: 56,
+  reddit: 54,
+  mock: 58,
+};
+
+const reputableSourceHint =
+  /reuters|associated press|ap news|bloomberg|wsj|wall street journal|bbc|ft|economist|techcrunch|the verge|nytimes|marketwatch/i;
+const lowTrustHint =
+  /affiliate|sponsored|promo|rumor|unverified|airdrop|casino|giveaway|clickbait/i;
+const botLikeHint = /guaranteed|1000x|!!!|free money|instant profit|shocking/i;
+const citationHint = /according to|study|report|survey|data|statistic|analysis|evidence|research/i;
+
+const sourceAccuracyScore = (item: DiscussionItem): number => {
+  const sourceText = `${item.source} ${item.title}`;
+  let score = platformTrustBaseline[item.platform];
+
+  if (reputableSourceHint.test(sourceText)) {
+    score += 15;
+  }
+
+  if (lowTrustHint.test(sourceText)) {
+    score -= 18;
+  }
+
+  if ((item.commentCount ?? 0) > 50) {
+    score += 6;
+  }
+
+  return clamp(score, 5, 100);
+};
+
+const sourceConflictRisk = (item: DiscussionItem): number => {
+  const text = `${item.title} ${item.snippet} ${item.source}`.toLowerCase();
+  let risk = 30;
+
+  if (item.platform === "youtube") {
+    risk += 8;
+  }
+  if (item.platform === "news") {
+    risk -= 8;
+  }
+  if (lowTrustHint.test(text)) {
+    risk += 26;
+  }
+  if (/sponsor|discount|sale|promo|subscribe now|limited offer/.test(text)) {
+    risk += 22;
+  }
+
+  return clamp(risk, 0, 100);
+};
+
+const sourceBotLikelihood = (item: DiscussionItem): number => {
+  const text = `${item.title} ${item.snippet}`;
+  const lower = text.toLowerCase();
+  const uppercaseRatio = text.length > 0 ? (text.match(/[A-Z]/g)?.length ?? 0) / text.length : 0;
+
+  let risk = item.platform === "web" ? 34 : 26;
+  if (botLikeHint.test(lower)) {
+    risk += 28;
+  }
+  if (uppercaseRatio > 0.28) {
+    risk += 16;
+  }
+  if ((item.author ?? "").trim().length > 3) {
+    risk -= 6;
+  }
+
+  return clamp(risk, 0, 100);
+};
+
+const sourceCitationDepth = (item: DiscussionItem): number => {
+  const text = `${item.title} ${item.snippet}`;
+  let score = 26 + Math.min(48, Math.round(item.snippet.length / 8));
+
+  if (citationHint.test(text.toLowerCase())) {
+    score += 16;
+  }
+  if (/\d/.test(text)) {
+    score += 8;
+  }
+
+  return clamp(score, 0, 100);
+};
+
+const credibilityConfidence = (
+  score: number,
+): SourceCredibilityInsight["confidence"] => {
+  if (score >= 74) {
+    return "high";
+  }
+  if (score >= 56) {
+    return "medium";
+  }
+  return "low";
+};
+
+export const deriveSourceCredibility = (
+  items: DiscussionItem[],
+): SourceCredibilityInsight[] => {
+  const grouped = new Map<string, DiscussionItem[]>();
+
+  for (const item of items) {
+    const key = `${item.platform}:${item.source.toLowerCase()}`;
+    if (!grouped.has(key)) {
+      grouped.set(key, []);
+    }
+    grouped.get(key)?.push(item);
+  }
+
+  return Array.from(grouped.values())
+    .map((groupedItems) => {
+      const sample = groupedItems[0];
+      const historicalAccuracy = Math.round(
+        average(groupedItems.map((item) => sourceAccuracyScore(item))),
+      );
+      const conflictRisk = Math.round(
+        average(groupedItems.map((item) => sourceConflictRisk(item))),
+      );
+      const botLikelihood = Math.round(
+        average(groupedItems.map((item) => sourceBotLikelihood(item))),
+      );
+      const citationDepth = Math.round(
+        average(groupedItems.map((item) => sourceCitationDepth(item))),
+      );
+
+      const credibilityScore = Math.round(
+        clamp(
+          historicalAccuracy * 0.42 +
+            (100 - conflictRisk) * 0.24 +
+            (100 - botLikelihood) * 0.2 +
+            citationDepth * 0.14,
+          0,
+          100,
+        ),
+      );
+
+      const weightedSignals = Math.round(
+        groupedItems.reduce((sum, item) => {
+          return sum + (item.engagement + 20) * (credibilityScore / 100);
+        }, 0),
+      );
+
+      const confidence = credibilityConfidence(credibilityScore);
+      const rationale =
+        confidence === "high"
+          ? "Consistent signal quality with lower manipulation risk and stronger evidence depth."
+          : confidence === "medium"
+            ? "Useful source with moderate trust signals; validate against higher-credibility channels."
+            : "Lower trust indicators detected; treat claims as directional and verify externally.";
+
+      return {
+        source: sample.source,
+        platform: sample.platform,
+        credibilityScore,
+        confidence,
+        weightedSignals,
+        itemCount: groupedItems.length,
+        historicalAccuracy,
+        conflictRisk,
+        botLikelihood,
+        citationDepth,
+        rationale,
+      } satisfies SourceCredibilityInsight;
+    })
+    .sort((left, right) => {
+      const weightedDelta = right.weightedSignals - left.weightedSignals;
+      return weightedDelta !== 0
+        ? weightedDelta
+        : right.credibilityScore - left.credibilityScore;
+    })
+    .slice(0, 8);
 };
 
 export const buildPlatformBreakdown = (items: DiscussionItem[]): PlatformInsight[] => {

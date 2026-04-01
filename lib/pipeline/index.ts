@@ -7,9 +7,11 @@ import { filterNoise } from "./filtering";
 import {
   buildExecutiveSummary,
   buildPlatformBreakdown,
+  deriveContrarianRadar,
   deriveContrarianInsights,
   deriveContentIdeas,
   deriveOpportunities,
+  deriveSourceCredibility,
   deriveTrends,
 } from "./insight-generation";
 import { expandQueries } from "./query-expansion";
@@ -130,6 +132,8 @@ const normalizeSummary = (analysis: AnalysisResult): AnalysisResult => {
     keyThemes: enrichThemeDetail(analysis.keyThemes),
     opportunities: enrichOpportunityDetail(analysis.opportunities),
     contrarianInsights: enrichContrarianDetail(analysis.contrarianInsights),
+    contrarianRadar: analysis.contrarianRadar ?? [],
+    sourceCredibility: analysis.sourceCredibility ?? [],
     contentIdeas: analysis.contentIdeas,
     dataQualityNote:
       analysis.dataQualityNote ??
@@ -155,6 +159,8 @@ const buildBaseAnalysis = (
   trends: AnalysisResult["trends"],
   opportunities: AnalysisResult["opportunities"],
   contrarianInsights: AnalysisResult["contrarianInsights"],
+  contrarianRadar: AnalysisResult["contrarianRadar"],
+  sourceCredibility: AnalysisResult["sourceCredibility"],
   contentIdeas: AnalysisResult["contentIdeas"],
   executiveSummary: AnalysisResult["executiveSummary"],
   sentimentOverview: AnalysisResult["sentimentOverview"],
@@ -170,6 +176,8 @@ const buildBaseAnalysis = (
     trends,
     opportunities,
     contrarianInsights,
+    contrarianRadar,
+    sourceCredibility,
     contentIdeas,
     sentimentOverview,
     sampleSources: pickSampleSources(items),
@@ -189,6 +197,8 @@ export const runAnalysisPipeline = async (topic: string): Promise<AnalysisResult
   const trends = deriveTrends(keyThemes, annotated);
   const opportunities = deriveOpportunities(topic, keyThemes, trends, sentimentOverview);
   const contrarianInsights = deriveContrarianInsights(topic, annotated, keyThemes);
+  const contrarianRadar = deriveContrarianRadar(keyThemes, trends, annotated);
+  const sourceCredibility = deriveSourceCredibility(annotated);
   const contentIdeas = deriveContentIdeas(topic, keyThemes, opportunities);
   const executiveSummary = buildExecutiveSummary(
     topic,
@@ -206,6 +216,8 @@ export const runAnalysisPipeline = async (topic: string): Promise<AnalysisResult
     trends,
     opportunities,
     contrarianInsights,
+    contrarianRadar,
+    sourceCredibility,
     contentIdeas,
     executiveSummary,
     sentimentOverview,

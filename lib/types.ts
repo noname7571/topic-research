@@ -76,6 +76,34 @@ export interface ContrarianInsight {
   whyCrowdMayBeWrong?: string;
 }
 
+export type OpportunityLevel = "high" | "medium" | "watch";
+
+export interface ContrarianRadarSignal {
+  theme: string;
+  contrarianScore: number;
+  opportunityLevel: OpportunityLevel;
+  sentimentBias: "crowd-negative" | "crowd-neutral" | "crowd-positive";
+  velocityScore: number;
+  expertEngagementScore: number;
+  rationale: string;
+}
+
+export type CredibilityConfidence = "high" | "medium" | "low";
+
+export interface SourceCredibilityInsight {
+  source: string;
+  platform: Platform;
+  credibilityScore: number;
+  confidence: CredibilityConfidence;
+  weightedSignals: number;
+  itemCount: number;
+  historicalAccuracy: number;
+  conflictRisk: number;
+  botLikelihood: number;
+  citationDepth: number;
+  rationale: string;
+}
+
 export interface ContentIdea {
   title: string;
   format: "youtube" | "twitter" | "tiktok";
@@ -132,6 +160,8 @@ export interface AnalysisResult {
   trends: TrendInsight[];
   opportunities: OpportunityInsight[];
   contrarianInsights: ContrarianInsight[];
+  contrarianRadar: ContrarianRadarSignal[];
+  sourceCredibility: SourceCredibilityInsight[];
   contentIdeas: ContentIdea[];
   sentimentOverview: SentimentOverview;
   sampleSources: SourcePreview[];
