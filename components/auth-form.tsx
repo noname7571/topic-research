@@ -107,7 +107,13 @@ export function AuthForm({ mode }: AuthFormProps) {
 
       if (error) {
         setStatus("error");
-        setMessage(error.message);
+        if (/unsupported provider|not enabled/i.test(error.message)) {
+          setMessage(
+            "This OAuth provider is not enabled in your Supabase project. Enable it in Authentication -> Providers and add OAuth credentials.",
+          );
+        } else {
+          setMessage(error.message);
+        }
       }
     } catch {
       setStatus("error");
@@ -263,6 +269,18 @@ export function AuthForm({ mode }: AuthFormProps) {
           </Link>
         </p>
       ) : null}
+
+      <p className="mt-5 text-center text-xs text-slate-500">
+        By continuing, you agree to our{" "}
+        <Link href="/legal?view=terms" className="font-semibold text-slate-700 underline">
+          Terms
+        </Link>{" "}
+        and{" "}
+        <Link href="/legal?view=privacy" className="font-semibold text-slate-700 underline">
+          Privacy Policy
+        </Link>
+        .
+      </p>
     </section>
   );
 }

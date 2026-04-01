@@ -41,6 +41,9 @@ export default function RootLayout({
             <Link href="/pricing" className="text-sm font-semibold text-slate-700">
               Pricing
             </Link>
+            <Link href="/legal" className="text-sm font-semibold text-slate-700">
+              Legal
+            </Link>
             <UserNav />
           </nav>
         </header>
