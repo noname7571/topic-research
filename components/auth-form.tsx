@@ -41,27 +41,6 @@ const oauthProviders: Array<{
       </svg>
     ),
   },
-  {
-    provider: "apple",
-    label: "Continue with Apple",
-    icon: (
-      <svg viewBox="0 0 384 512" aria-hidden="true" className="h-4 w-4 fill-slate-900">
-        <path d="M318.7 268.1c-.3-36.7 16.3-64.5 50.9-85.7-19.4-27.8-48.5-43.1-87.1-45.7-36.5-2.8-76.3 21.4-90.9 21.4-15.5 0-50.9-20.4-78.7-20.4C54.7 138.4 0 185.3 0 279.2c0 27.8 5.1 56.6 15.3 86.4 13.6 39.4 62.7 136.2 114 134.6 26.8-.7 45.7-19 80.6-19 33.9 0 51.5 19 80.7 19 51.8-.7 96.2-90.6 109.1-130.1-74.4-35.1-81-99.9-81-102.9zM260.5 102.4c28-33.2 25.4-63.4 24.5-74.4-24.7 1.4-53.3 16.8-69.6 35.8-17.9 20.6-28.4 46-26.1 74.3 26.8 2.1 50.9-11.5 71.2-35.7z" />
-      </svg>
-    ),
-  },
-  {
-    provider: "azure",
-    label: "Continue with Microsoft",
-    icon: (
-      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
-        <path fill="#F25022" d="M2 2h9v9H2z" />
-        <path fill="#00A4EF" d="M13 2h9v9h-9z" />
-        <path fill="#7FBA00" d="M2 13h9v9H2z" />
-        <path fill="#FFB900" d="M13 13h9v9h-9z" />
-      </svg>
-    ),
-  },
 ];
 
 export function AuthForm({ mode }: AuthFormProps) {
