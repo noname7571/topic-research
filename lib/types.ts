@@ -193,6 +193,7 @@ export interface AccessContext {
 
 export interface AnalysisResult {
   topic: string;
+  interactionId?: string;
   generatedAt: string;
   fromCache: boolean;
   totalSignals: number;

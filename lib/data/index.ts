@@ -10,6 +10,7 @@ import { fetchYouTubeDiscussions } from "./youtube";
 export const fetchDiscussions = async (
   topic: string,
   expandedQueries: string[],
+  memoryItems: DiscussionItem[] = [],
 ): Promise<DiscussionItem[]> => {
   const [search, reddit, youtube, news] = await Promise.all([
     fetchSearchDiscussions(topic, expandedQueries),
@@ -18,7 +19,7 @@ export const fetchDiscussions = async (
     fetchNewsDiscussions(topic, expandedQueries),
   ]);
 
-  let combined = [...search, ...reddit, ...youtube, ...news];
+  let combined = [...memoryItems, ...search, ...reddit, ...youtube, ...news];
 
   if (combined.length === 0) {
     combined = buildMockDiscussions(topic, expandedQueries[0] ?? topic);

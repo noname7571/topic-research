@@ -1,3 +1,5 @@
+create extension if not exists pgcrypto;
+
 create table if not exists public.users (
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null unique,
@@ -25,6 +27,38 @@ create table if not exists public.subscriptions (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.analysis_interactions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users(id) on delete cascade,
+  topic text not null,
+  normalized_topic text not null,
+  request_payload jsonb not null default '{}'::jsonb,
+  analysis_payload jsonb,
+  retrieval_payload jsonb,
+  status text not null default 'pending' check (status in ('pending', 'completed', 'failed')),
+  source_count integer not null default 0,
+  error_message text,
+  approved boolean,
+  feedback_note text,
+  feedback_labels text[] not null default '{}'::text[],
+  completed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.retrieval_memories (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references public.users(id) on delete cascade,
+  interaction_id uuid not null unique references public.analysis_interactions(id) on delete cascade,
+  topic text not null,
+  normalized_topic text not null,
+  memory_summary text not null,
+  confidence integer not null default 65,
+  memory_payload jsonb not null default '{}'::jsonb,
+  approved_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
 alter table public.subscriptions
   add column if not exists cancel_at_period_end boolean not null default false;
 
@@ -37,9 +71,20 @@ create index if not exists usage_logs_user_created_idx
 create index if not exists subscriptions_customer_idx
   on public.subscriptions (stripe_customer_id);
 
+create index if not exists analysis_interactions_user_created_idx
+  on public.analysis_interactions (user_id, created_at desc);
+
+create index if not exists analysis_interactions_user_topic_idx
+  on public.analysis_interactions (user_id, normalized_topic);
+
+create index if not exists retrieval_memories_user_topic_idx
+  on public.retrieval_memories (user_id, normalized_topic, approved_at desc);
+
 alter table public.users enable row level security;
 alter table public.usage_logs enable row level security;
 alter table public.subscriptions enable row level security;
+alter table public.analysis_interactions enable row level security;
+alter table public.retrieval_memories enable row level security;
 
 drop policy if exists "users can read own profile" on public.users;
 
@@ -82,6 +127,50 @@ create policy "users can read own subscriptions"
   on public.subscriptions
   for select
   using (auth.uid() = user_id);
+
+drop policy if exists "users can read own interactions" on public.analysis_interactions;
+
+create policy "users can read own interactions"
+  on public.analysis_interactions
+  for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "users can insert own interactions" on public.analysis_interactions;
+
+create policy "users can insert own interactions"
+  on public.analysis_interactions
+  for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "users can update own interactions" on public.analysis_interactions;
+
+create policy "users can update own interactions"
+  on public.analysis_interactions
+  for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "users can read own retrieval memories" on public.retrieval_memories;
+
+create policy "users can read own retrieval memories"
+  on public.retrieval_memories
+  for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "users can insert own retrieval memories" on public.retrieval_memories;
+
+create policy "users can insert own retrieval memories"
+  on public.retrieval_memories
+  for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "users can update own retrieval memories" on public.retrieval_memories;
+
+create policy "users can update own retrieval memories"
+  on public.retrieval_memories
+  for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 create or replace function public.handle_new_user()
 returns trigger

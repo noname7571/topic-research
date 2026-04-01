@@ -41,6 +41,10 @@ export function DashboardShell() {
   const [lastTopic, setLastTopic] = useState<string | null>(null);
   const [billingMessage, setBillingMessage] = useState<string | null>(null);
   const [billingLoading, setBillingLoading] = useState<"idle" | "portal" | "cancel">("idle");
+  const [feedbackState, setFeedbackState] = useState<
+    "idle" | "submitting" | "approved" | "rejected" | "error"
+  >("idle");
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
   const loadAccount = async () => {
     setAccountLoading(true);
@@ -65,6 +69,8 @@ export function DashboardShell() {
   const runAnalysis = async (topic: string) => {
     setIsLoading(true);
     setError(null);
+    setFeedbackState("idle");
+    setFeedbackMessage(null);
 
     try {
       const response = await fetch("/api/analyze", {
@@ -88,6 +94,41 @@ export function DashboardShell() {
       setError("Network error while requesting analysis.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const submitFeedback = async (approved: boolean) => {
+    if (!analysis?.interactionId || feedbackState === "submitting") {
+      return;
+    }
+
+    setFeedbackState("submitting");
+    setFeedbackMessage(null);
+
+    try {
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          interactionId: analysis.interactionId,
+          approved,
+        }),
+      });
+
+      const payload = (await response.json()) as { message?: string; error?: string };
+      if (!response.ok) {
+        setFeedbackState("error");
+        setFeedbackMessage(payload.error ?? "Unable to save feedback.");
+        return;
+      }
+
+      setFeedbackState(approved ? "approved" : "rejected");
+      setFeedbackMessage(payload.message ?? "Feedback saved.");
+    } catch {
+      setFeedbackState("error");
+      setFeedbackMessage("Unable to save feedback.");
     }
   };
 
@@ -246,6 +287,46 @@ export function DashboardShell() {
           onRegenerate={lastTopic ? () => runAnalysis(lastTopic) : undefined}
           isRegenerating={isLoading}
         />
+      ) : null}
+
+      {analysis?.interactionId ? (
+        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+          <p className="text-sm font-semibold text-slate-900">
+            Was this analysis useful?
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Approved analyses are added to your retrieval memory and can improve future runs.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => submitFeedback(true)}
+              disabled={feedbackState === "submitting"}
+              className="rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
+            >
+              {feedbackState === "submitting" ? "Saving..." : "Approve"}
+            </button>
+            <button
+              type="button"
+              onClick={() => submitFeedback(false)}
+              disabled={feedbackState === "submitting"}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100"
+            >
+              Not useful
+            </button>
+          </div>
+          {feedbackMessage ? (
+            <p
+              className={`mt-3 rounded-lg border px-3 py-2 text-xs ${
+                feedbackState === "error"
+                  ? "border-rose-200 bg-rose-50 text-rose-700"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-700"
+              }`}
+            >
+              {feedbackMessage}
+            </p>
+          ) : null}
+        </section>
       ) : null}
 
       <section className="mt-10 glass-panel rounded-3xl p-6 sm:p-8">
