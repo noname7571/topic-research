@@ -2,6 +2,7 @@ import { APP_CONFIG } from "@/lib/config";
 import { DiscussionItem } from "@/lib/types";
 
 import { buildMockDiscussions } from "./mock";
+import { fetchNewsDiscussions } from "./news";
 import { fetchRedditDiscussions } from "./reddit";
 import { fetchSearchDiscussions } from "./search";
 import { fetchYouTubeDiscussions } from "./youtube";
@@ -10,13 +11,14 @@ export const fetchDiscussions = async (
   topic: string,
   expandedQueries: string[],
 ): Promise<DiscussionItem[]> => {
-  const [search, reddit, youtube] = await Promise.all([
+  const [search, reddit, youtube, news] = await Promise.all([
     fetchSearchDiscussions(topic, expandedQueries),
     fetchRedditDiscussions(topic, expandedQueries),
     fetchYouTubeDiscussions(topic, expandedQueries),
+    fetchNewsDiscussions(topic, expandedQueries),
   ]);
 
-  let combined = [...search, ...reddit, ...youtube];
+  let combined = [...search, ...reddit, ...youtube, ...news];
 
   if (combined.length === 0) {
     combined = buildMockDiscussions(topic, expandedQueries[0] ?? topic);

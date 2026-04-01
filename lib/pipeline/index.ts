@@ -200,7 +200,10 @@ const buildBaseAnalysis = (
 export const runAnalysisPipeline = async (topic: string): Promise<AnalysisResult> => {
   const expandedQueries = expandQueries(topic);
   const retrieved = await fetchDiscussions(topic, expandedQueries);
-  const filtered = filterNoise(retrieved);
+  const filtered = filterNoise(retrieved, {
+    topic,
+    expandedQueries,
+  });
   const annotated = annotateSentiment(filtered);
 
   const sentimentOverview = summarizeSentiment(annotated);
