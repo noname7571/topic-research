@@ -5,11 +5,16 @@ import { AnalysisResult, DiscussionItem } from "@/lib/types";
 import { clusterThemes } from "./clustering";
 import { filterNoise } from "./filtering";
 import {
+  deriveActionSimulator,
   buildExecutiveSummary,
   buildPlatformBreakdown,
+  deriveContentAngleEngine,
+  deriveContrarianRadar,
   deriveContrarianInsights,
   deriveContentIdeas,
+  deriveEvidenceCards,
   deriveOpportunities,
+  deriveSourceCredibility,
   deriveTrends,
 } from "./insight-generation";
 import { expandQueries } from "./query-expansion";
@@ -130,6 +135,11 @@ const normalizeSummary = (analysis: AnalysisResult): AnalysisResult => {
     keyThemes: enrichThemeDetail(analysis.keyThemes),
     opportunities: enrichOpportunityDetail(analysis.opportunities),
     contrarianInsights: enrichContrarianDetail(analysis.contrarianInsights),
+    contrarianRadar: analysis.contrarianRadar ?? [],
+    sourceCredibility: analysis.sourceCredibility ?? [],
+    actionSimulator: analysis.actionSimulator ?? [],
+    evidenceCards: analysis.evidenceCards ?? [],
+    contentAngleEngine: analysis.contentAngleEngine ?? [],
     contentIdeas: analysis.contentIdeas,
     dataQualityNote:
       analysis.dataQualityNote ??
@@ -155,6 +165,11 @@ const buildBaseAnalysis = (
   trends: AnalysisResult["trends"],
   opportunities: AnalysisResult["opportunities"],
   contrarianInsights: AnalysisResult["contrarianInsights"],
+  contrarianRadar: AnalysisResult["contrarianRadar"],
+  sourceCredibility: AnalysisResult["sourceCredibility"],
+  actionSimulator: AnalysisResult["actionSimulator"],
+  evidenceCards: AnalysisResult["evidenceCards"],
+  contentAngleEngine: AnalysisResult["contentAngleEngine"],
   contentIdeas: AnalysisResult["contentIdeas"],
   executiveSummary: AnalysisResult["executiveSummary"],
   sentimentOverview: AnalysisResult["sentimentOverview"],
@@ -170,6 +185,11 @@ const buildBaseAnalysis = (
     trends,
     opportunities,
     contrarianInsights,
+    contrarianRadar,
+    sourceCredibility,
+    actionSimulator,
+    evidenceCards,
+    contentAngleEngine,
     contentIdeas,
     sentimentOverview,
     sampleSources: pickSampleSources(items),
@@ -189,7 +209,32 @@ export const runAnalysisPipeline = async (topic: string): Promise<AnalysisResult
   const trends = deriveTrends(keyThemes, annotated);
   const opportunities = deriveOpportunities(topic, keyThemes, trends, sentimentOverview);
   const contrarianInsights = deriveContrarianInsights(topic, annotated, keyThemes);
+  const contrarianRadar = deriveContrarianRadar(keyThemes, trends, annotated);
+  const sourceCredibility = deriveSourceCredibility(annotated);
+  const actionSimulator = deriveActionSimulator(
+    topic,
+    keyThemes,
+    trends,
+    opportunities,
+    sentimentOverview,
+  );
   const contentIdeas = deriveContentIdeas(topic, keyThemes, opportunities);
+  const contentAngleEngine = deriveContentAngleEngine(
+    topic,
+    keyThemes,
+    opportunities,
+    contrarianRadar,
+    actionSimulator,
+    contentIdeas,
+  );
+  const evidenceCards = deriveEvidenceCards(
+    topic,
+    keyThemes,
+    opportunities,
+    contrarianInsights,
+    annotated,
+    sourceCredibility,
+  );
   const executiveSummary = buildExecutiveSummary(
     topic,
     annotated.length,
@@ -206,6 +251,11 @@ export const runAnalysisPipeline = async (topic: string): Promise<AnalysisResult
     trends,
     opportunities,
     contrarianInsights,
+    contrarianRadar,
+    sourceCredibility,
+    actionSimulator,
+    evidenceCards,
+    contentAngleEngine,
     contentIdeas,
     executiveSummary,
     sentimentOverview,
@@ -245,6 +295,39 @@ export const runAnalysisPipeline = async (topic: string): Promise<AnalysisResult
       dataQualityNote: aiEnhancements.dataQualityNote ?? analysis.dataQualityNote,
     };
   }
+
+  analysis = {
+    ...analysis,
+    actionSimulator: deriveActionSimulator(
+      topic,
+      analysis.keyThemes,
+      analysis.trends,
+      analysis.opportunities,
+      analysis.sentimentOverview,
+    ),
+    contentAngleEngine: deriveContentAngleEngine(
+      topic,
+      analysis.keyThemes,
+      analysis.opportunities,
+      analysis.contrarianRadar,
+      deriveActionSimulator(
+        topic,
+        analysis.keyThemes,
+        analysis.trends,
+        analysis.opportunities,
+        analysis.sentimentOverview,
+      ),
+      analysis.contentIdeas,
+    ),
+    evidenceCards: deriveEvidenceCards(
+      topic,
+      analysis.keyThemes,
+      analysis.opportunities,
+      analysis.contrarianInsights,
+      annotated,
+      analysis.sourceCredibility,
+    ),
+  };
 
   return normalizeSummary(withDerivedDataQualityNote(analysis, annotated));
 };

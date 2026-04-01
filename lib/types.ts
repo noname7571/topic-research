@@ -76,6 +76,75 @@ export interface ContrarianInsight {
   whyCrowdMayBeWrong?: string;
 }
 
+export type OpportunityLevel = "high" | "medium" | "watch";
+
+export interface ContrarianRadarSignal {
+  theme: string;
+  contrarianScore: number;
+  opportunityLevel: OpportunityLevel;
+  sentimentBias: "crowd-negative" | "crowd-neutral" | "crowd-positive";
+  velocityScore: number;
+  expertEngagementScore: number;
+  rationale: string;
+}
+
+export type CredibilityConfidence = "high" | "medium" | "low";
+
+export interface SourceCredibilityInsight {
+  source: string;
+  platform: Platform;
+  credibilityScore: number;
+  confidence: CredibilityConfidence;
+  weightedSignals: number;
+  itemCount: number;
+  historicalAccuracy: number;
+  conflictRisk: number;
+  botLikelihood: number;
+  citationDepth: number;
+  rationale: string;
+}
+
+export type AudienceReaction = "positive" | "mixed" | "negative";
+
+export interface AudienceReactionForecast {
+  segment: string;
+  reaction: AudienceReaction;
+  confidence: number;
+  reason: string;
+}
+
+export interface ActionSimulation {
+  angle: string;
+  channel: "youtube" | "twitter" | "tiktok" | "linkedin" | "landing-page";
+  audienceReactions: AudienceReactionForecast[];
+  upsideScore: number;
+  backlashRisk: number;
+  recommendation: string;
+}
+
+export interface EvidenceCitation {
+  title: string;
+  url: string;
+  platform: Platform;
+  source: string;
+}
+
+export interface EvidenceInsightCard {
+  claim: string;
+  confidence: number;
+  uncertainty: string;
+  citations: EvidenceCitation[];
+}
+
+export interface ContentAngleForecast {
+  title: string;
+  channel: "youtube" | "twitter" | "tiktok" | "linkedin" | "newsletter";
+  targetAudience: string;
+  resonanceScore: number;
+  hook: string;
+  rationale: string;
+}
+
 export interface ContentIdea {
   title: string;
   format: "youtube" | "twitter" | "tiktok";
@@ -109,6 +178,7 @@ export type LockedSection =
   | "trendAnalysis"
   | "opportunities"
   | "contrarianInsights"
+  | "actionSimulator"
   | "contentIdeas"
   | "evidenceDepth";
 
@@ -132,6 +202,11 @@ export interface AnalysisResult {
   trends: TrendInsight[];
   opportunities: OpportunityInsight[];
   contrarianInsights: ContrarianInsight[];
+  contrarianRadar: ContrarianRadarSignal[];
+  sourceCredibility: SourceCredibilityInsight[];
+  actionSimulator: ActionSimulation[];
+  evidenceCards: EvidenceInsightCard[];
+  contentAngleEngine: ContentAngleForecast[];
   contentIdeas: ContentIdea[];
   sentimentOverview: SentimentOverview;
   sampleSources: SourcePreview[];

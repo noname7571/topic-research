@@ -19,6 +19,7 @@ export const PLAN_LOCKED_SECTIONS: Record<PlanTier, LockedSection[]> = {
     "trendAnalysis",
     "opportunities",
     "contrarianInsights",
+    "actionSimulator",
     "contentIdeas",
     "evidenceDepth",
   ],

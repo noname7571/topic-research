@@ -133,7 +133,7 @@ export const attachAccessContext = (
     lockedSections: PLAN_LOCKED_SECTIONS[account.plan],
     upgradeMessage:
       account.plan === "free"
-        ? "Unlock full analysis with Pro to access opportunities, contrarian insights, trends, and content ideas."
+        ? "Unlock full analysis with Pro to access opportunities, contrarian insights, action simulator, evidence-first cards, trends, and content angle engine."
         : undefined,
   };
 
@@ -189,6 +189,9 @@ export const applyPlanGating = (
       trends: [],
       opportunities: [],
       contrarianInsights: [],
+      actionSimulator: [],
+      evidenceCards: [],
+      contentAngleEngine: [],
       contentIdeas: [],
       sampleSources: analysis.sampleSources.slice(0, 5),
       sourceAccess: {
