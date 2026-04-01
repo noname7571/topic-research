@@ -1,10 +1,13 @@
 import {
   ActionSimulation,
   AudienceReaction,
+  ContentAngleForecast,
   ContrarianRadarSignal,
   ContentIdea,
   ContrarianInsight,
   DiscussionItem,
+  EvidenceCitation,
+  EvidenceInsightCard,
   ExecutiveSummary,
   OpportunityInsight,
   PlatformInsight,
@@ -529,6 +532,232 @@ export const deriveActionSimulator = (
           ? `${recommendation} Anchor it to ${seed.fallbackTheme.toLowerCase()} discussion patterns.`
           : recommendation,
     } satisfies ActionSimulation;
+  });
+};
+
+const claimKeywords = (text: string): string[] => {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length > 3)
+    .slice(0, 16);
+};
+
+const citationRelevanceScore = (item: DiscussionItem, keywords: string[]): number => {
+  const searchable = `${item.title} ${item.snippet}`.toLowerCase();
+  let score = 0;
+  for (const keyword of keywords) {
+    if (searchable.includes(keyword)) {
+      score += 1;
+    }
+  }
+  return score;
+};
+
+const uncertaintyFromConfidence = (
+  confidence: number,
+  citationCount: number,
+  platformDiversity: number,
+): string => {
+  if (confidence < 60) {
+    return "Confidence is moderate. Validate with additional data before making irreversible decisions.";
+  }
+
+  if (citationCount < 2 || platformDiversity < 2) {
+    return "Signal is strong but source diversity is limited. Cross-check with at least one additional platform.";
+  }
+
+  return "Uncertainty is low for directional strategy, but outcomes still depend on execution quality and timing.";
+};
+
+export const deriveEvidenceCards = (
+  topic: string,
+  themes: ThemeInsight[],
+  opportunities: OpportunityInsight[],
+  contrarianInsights: ContrarianInsight[],
+  items: DiscussionItem[],
+  sourceCredibility: SourceCredibilityInsight[],
+): EvidenceInsightCard[] => {
+  const credibilityBySource = new Map(
+    sourceCredibility.map((entry) => [
+      `${entry.platform}:${entry.source.toLowerCase()}`,
+      entry.credibilityScore,
+    ]),
+  );
+
+  const claimSeeds = [
+    themes[0] ? `${themes[0].name} is a primary demand driver in current discourse.` : "",
+    opportunities[0]
+      ? `${opportunities[0].title} is currently the highest-leverage execution path.`
+      : "",
+    contrarianInsights[0]
+      ? `${contrarianInsights[0].title} has measurable supporting evidence beyond crowd consensus.`
+      : "",
+    `${topic} conversations show a practical execution gap that can be converted into strategic advantage.`,
+  ].filter(Boolean);
+
+  return claimSeeds.slice(0, 4).map((claim) => {
+    const keywords = claimKeywords(claim);
+
+    const ranked = [...items]
+      .map((item) => {
+        const sourceKey = `${item.platform}:${item.source.toLowerCase()}`;
+        const credibility = credibilityBySource.get(sourceKey) ?? 52;
+        const relevance = citationRelevanceScore(item, keywords);
+        const engagementScore = Math.min(30, Math.log10(item.engagement + 10) * 11);
+        const recencyScore = recencyWeight(item.publishedAt) * 20;
+
+        return {
+          item,
+          credibility,
+          score: relevance * 7 + credibility * 0.35 + engagementScore + recencyScore,
+        };
+      })
+      .sort((left, right) => right.score - left.score);
+
+    const citations: EvidenceCitation[] = [];
+    const seenUrls = new Set<string>();
+
+    for (const row of ranked) {
+      if (seenUrls.has(row.item.url)) {
+        continue;
+      }
+      seenUrls.add(row.item.url);
+      citations.push({
+        title: row.item.title,
+        url: row.item.url,
+        platform: row.item.platform,
+        source: row.item.source,
+      });
+      if (citations.length >= 3) {
+        break;
+      }
+    }
+
+    const citationCredibility = citations.map((citation) => {
+      return (
+        credibilityBySource.get(`${citation.platform}:${citation.source.toLowerCase()}`) ?? 52
+      );
+    });
+    const averageCredibility = average(citationCredibility);
+    const platformDiversity = new Set(citations.map((citation) => citation.platform)).size;
+
+    const confidence = clamp(
+      Math.round(
+        42 + averageCredibility * 0.4 + citations.length * 7 + platformDiversity * 4,
+      ),
+      38,
+      95,
+    );
+
+    return {
+      claim,
+      confidence,
+      uncertainty: uncertaintyFromConfidence(confidence, citations.length, platformDiversity),
+      citations,
+    } satisfies EvidenceInsightCard;
+  });
+};
+
+export const deriveContentAngleEngine = (
+  topic: string,
+  themes: ThemeInsight[],
+  opportunities: OpportunityInsight[],
+  contrarianRadar: ContrarianRadarSignal[],
+  actionSimulator: ActionSimulation[],
+  contentIdeas: ContentIdea[],
+): ContentAngleForecast[] => {
+  const topTheme = themes[0]?.name ?? topic;
+  const secondTheme = themes[1]?.name ?? "execution gaps";
+  const topOpportunity = opportunities[0]?.title ?? `Build around ${topTheme}`;
+  const radarSignal = contrarianRadar[0];
+  const radarScore = radarSignal?.contrarianScore ?? 56;
+
+  const scenarioByChannel = new Map<string, ActionSimulation>(
+    actionSimulator.map((scenario) => [scenario.channel, scenario] as const),
+  );
+
+  const seeds: Array<
+    Omit<ContentAngleForecast, "resonanceScore"> & { channelWeight: number }
+  > = [
+    {
+      title: `${topTheme}: the take everyone repeats that is directionally wrong`,
+      channel: "youtube",
+      targetAudience: "Operators and strategic buyers",
+      hook: `Most coverage on ${topTheme.toLowerCase()} misses the constraint that actually decides outcomes.`,
+      rationale: "Long-form narrative correction with concrete examples and tradeoff breakdowns.",
+      channelWeight: 9,
+    },
+    {
+      title: `Thread: why ${topOpportunity.toLowerCase()} beats feature-first launches`,
+      channel: "twitter",
+      targetAudience: "Builders and growth teams",
+      hook: "A contrarian build path with 5 evidence-backed moves the crowd usually skips.",
+      rationale: "Fast, shareable argument chain that converts contrarian signal into practical execution.",
+      channelWeight: 8,
+    },
+    {
+      title: `${secondTheme} playbook for teams that need trust before scale`,
+      channel: "linkedin",
+      targetAudience: "B2B decision makers",
+      hook: "The messaging shift that lowers buyer skepticism without discounting your product.",
+      rationale: "Authority-led framing with credibility-first positioning and explicit assumptions.",
+      channelWeight: 7,
+    },
+    {
+      title: `30-second teardown: the hidden risk in "obvious" ${topic} strategies`,
+      channel: "tiktok",
+      targetAudience: "Creators and early adopters",
+      hook: "One chart, one myth, one better move.",
+      rationale: "High-retention short format designed around narrative reversal and practical CTA.",
+      channelWeight: 7,
+    },
+    {
+      title: `Weekly intelligence brief: where ${topic} demand is mutating`,
+      channel: "newsletter",
+      targetAudience: "Founders and product leads",
+      hook: "Top shifts, weak signals, and one decision recommendation for next week.",
+      rationale: "Recurring format that compounds trust with evidence-first trend interpretation.",
+      channelWeight: 8,
+    },
+  ];
+
+  return seeds.map((seed, index) => {
+    const matchingScenario = scenarioByChannel.get(seed.channel) ?? actionSimulator[index % Math.max(1, actionSimulator.length)];
+    const simulationUpside = matchingScenario?.upsideScore ?? 58;
+    const simulationRisk = matchingScenario?.backlashRisk ?? 38;
+    const ideaBoost = contentIdeas[index]?.format
+      ? contentIdeas[index]?.format === "youtube" && seed.channel === "youtube"
+        ? 6
+        : contentIdeas[index]?.format === "twitter" && seed.channel === "twitter"
+          ? 6
+          : contentIdeas[index]?.format === "tiktok" && seed.channel === "tiktok"
+            ? 6
+            : 2
+      : 0;
+
+    const resonanceScore = clamp(
+      Math.round(
+        40 +
+          radarScore * 0.22 +
+          simulationUpside * 0.35 -
+          simulationRisk * 0.18 +
+          seed.channelWeight +
+          ideaBoost,
+      ),
+      30,
+      96,
+    );
+
+    return {
+      title: seed.title,
+      channel: seed.channel,
+      targetAudience: seed.targetAudience,
+      resonanceScore,
+      hook: seed.hook,
+      rationale: seed.rationale,
+    } satisfies ContentAngleForecast;
   });
 };
 

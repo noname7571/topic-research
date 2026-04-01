@@ -8,9 +8,11 @@ import {
   deriveActionSimulator,
   buildExecutiveSummary,
   buildPlatformBreakdown,
+  deriveContentAngleEngine,
   deriveContrarianRadar,
   deriveContrarianInsights,
   deriveContentIdeas,
+  deriveEvidenceCards,
   deriveOpportunities,
   deriveSourceCredibility,
   deriveTrends,
@@ -136,6 +138,8 @@ const normalizeSummary = (analysis: AnalysisResult): AnalysisResult => {
     contrarianRadar: analysis.contrarianRadar ?? [],
     sourceCredibility: analysis.sourceCredibility ?? [],
     actionSimulator: analysis.actionSimulator ?? [],
+    evidenceCards: analysis.evidenceCards ?? [],
+    contentAngleEngine: analysis.contentAngleEngine ?? [],
     contentIdeas: analysis.contentIdeas,
     dataQualityNote:
       analysis.dataQualityNote ??
@@ -164,6 +168,8 @@ const buildBaseAnalysis = (
   contrarianRadar: AnalysisResult["contrarianRadar"],
   sourceCredibility: AnalysisResult["sourceCredibility"],
   actionSimulator: AnalysisResult["actionSimulator"],
+  evidenceCards: AnalysisResult["evidenceCards"],
+  contentAngleEngine: AnalysisResult["contentAngleEngine"],
   contentIdeas: AnalysisResult["contentIdeas"],
   executiveSummary: AnalysisResult["executiveSummary"],
   sentimentOverview: AnalysisResult["sentimentOverview"],
@@ -182,6 +188,8 @@ const buildBaseAnalysis = (
     contrarianRadar,
     sourceCredibility,
     actionSimulator,
+    evidenceCards,
+    contentAngleEngine,
     contentIdeas,
     sentimentOverview,
     sampleSources: pickSampleSources(items),
@@ -211,6 +219,22 @@ export const runAnalysisPipeline = async (topic: string): Promise<AnalysisResult
     sentimentOverview,
   );
   const contentIdeas = deriveContentIdeas(topic, keyThemes, opportunities);
+  const contentAngleEngine = deriveContentAngleEngine(
+    topic,
+    keyThemes,
+    opportunities,
+    contrarianRadar,
+    actionSimulator,
+    contentIdeas,
+  );
+  const evidenceCards = deriveEvidenceCards(
+    topic,
+    keyThemes,
+    opportunities,
+    contrarianInsights,
+    annotated,
+    sourceCredibility,
+  );
   const executiveSummary = buildExecutiveSummary(
     topic,
     annotated.length,
@@ -230,6 +254,8 @@ export const runAnalysisPipeline = async (topic: string): Promise<AnalysisResult
     contrarianRadar,
     sourceCredibility,
     actionSimulator,
+    evidenceCards,
+    contentAngleEngine,
     contentIdeas,
     executiveSummary,
     sentimentOverview,
@@ -278,6 +304,28 @@ export const runAnalysisPipeline = async (topic: string): Promise<AnalysisResult
       analysis.trends,
       analysis.opportunities,
       analysis.sentimentOverview,
+    ),
+    contentAngleEngine: deriveContentAngleEngine(
+      topic,
+      analysis.keyThemes,
+      analysis.opportunities,
+      analysis.contrarianRadar,
+      deriveActionSimulator(
+        topic,
+        analysis.keyThemes,
+        analysis.trends,
+        analysis.opportunities,
+        analysis.sentimentOverview,
+      ),
+      analysis.contentIdeas,
+    ),
+    evidenceCards: deriveEvidenceCards(
+      topic,
+      analysis.keyThemes,
+      analysis.opportunities,
+      analysis.contrarianInsights,
+      annotated,
+      analysis.sourceCredibility,
     ),
   };
 

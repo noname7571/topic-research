@@ -38,6 +38,26 @@ const reactionTone = {
   negative: "border-rose-200 bg-rose-50 text-rose-700",
 };
 
+const confidenceTone = (confidence: number): string => {
+  if (confidence >= 75) {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  }
+  if (confidence >= 60) {
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+  return "border-rose-200 bg-rose-50 text-rose-700";
+};
+
+const resonanceTone = (score: number): string => {
+  if (score >= 75) {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  }
+  if (score >= 60) {
+    return "border-blue-200 bg-blue-50 text-blue-700";
+  }
+  return "border-slate-200 bg-slate-100 text-slate-700";
+};
+
 const clampScore = (value: number, min: number, max: number): number => {
   return Math.max(min, Math.min(max, value));
 };
@@ -202,6 +222,19 @@ const buildCopyPayload = (analysis: AnalysisResult): string => {
     )
     .join("\n");
 
+  const evidenceCards = (analysis.evidenceCards ?? [])
+    .slice(0, 4)
+    .map((card) => `- ${card.claim} | confidence ${card.confidence}`)
+    .join("\n");
+
+  const contentAngles = (analysis.contentAngleEngine ?? [])
+    .slice(0, 6)
+    .map(
+      (item) =>
+        `- [${item.channel}] ${item.title} -> ${item.targetAudience} | resonance ${item.resonanceScore}`,
+    )
+    .join("\n");
+
   const contrarianRadar = (analysis.contrarianRadar ?? [])
     .slice(0, 4)
     .map(
@@ -241,8 +274,14 @@ const buildCopyPayload = (analysis: AnalysisResult): string => {
     "Source credibility:",
     sourceCredibility,
     "",
+    "Evidence-first cards:",
+    evidenceCards,
+    "",
     "Action simulator:",
     actionSimulator,
+    "",
+    "Content angle engine:",
+    contentAngles,
     "",
     "Content ideas:",
     contentIdeas,
@@ -315,6 +354,8 @@ export function AnalysisDashboard({
   const evidenceLocked = isSectionLocked(analysis, "evidenceDepth");
   const contrarianRadar = analysis.contrarianRadar ?? [];
   const sourceCredibility = analysis.sourceCredibility ?? [];
+  const evidenceCards = analysis.evidenceCards ?? [];
+  const contentAngleEngine = analysis.contentAngleEngine ?? [];
   const radarItems: AnalysisResult["contrarianRadar"] =
     contrarianRadar.length > 0
       ? contrarianRadar.slice(0, 4)
@@ -365,6 +406,30 @@ export function AnalysisDashboard({
             upsideScore: 0,
             backlashRisk: 0,
             recommendation: "Unlock Pro to use the action simulator.",
+          },
+        ];
+  const evidenceCardItems: AnalysisResult["evidenceCards"] =
+    evidenceCards.length > 0
+      ? evidenceCards.slice(0, 4)
+      : [
+          {
+            claim: "Evidence-first cards locked",
+            confidence: 0,
+            uncertainty: "Upgrade to unlock confidence scoring, uncertainty notes, and citation-linked claims.",
+            citations: [],
+          },
+        ];
+  const contentAngleItems: AnalysisResult["contentAngleEngine"] =
+    contentAngleEngine.length > 0
+      ? contentAngleEngine.slice(0, 6)
+      : [
+          {
+            title: "Content angle engine locked",
+            channel: "newsletter",
+            targetAudience: "Paid members",
+            resonanceScore: 0,
+            hook: "Upgrade to unlock predicted resonance by channel and audience.",
+            rationale: "Paid plans include the full content angle engine.",
           },
         ];
 
@@ -502,6 +567,61 @@ export function AnalysisDashboard({
             Data quality: {analysis.dataQualityNote}
           </p>
         ) : null}
+      </section>
+
+      <section className="relative space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-bold text-slate-950">Evidence-First Insight Cards</h3>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Claims with citations and uncertainty
+          </p>
+        </div>
+
+        <div className={`grid gap-4 lg:grid-cols-2 ${evidenceLocked ? "pointer-events-none blur-[2px]" : ""}`}>
+          {evidenceCardItems.map((card, index) => (
+            <article
+              key={`${card.claim}-${index}`}
+              className="rounded-2xl border border-slate-200 bg-white p-5"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Claim</p>
+                <span
+                  className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${confidenceTone(
+                    card.confidence,
+                  )}`}
+                >
+                  Confidence {card.confidence}
+                </span>
+              </div>
+              <h4 className="mt-2 text-base font-semibold text-slate-900">{card.claim}</h4>
+              <p className="mt-2 text-sm text-slate-600">Uncertainty: {card.uncertainty}</p>
+
+              {card.citations.length > 0 ? (
+                <div className="mt-4 space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Citations
+                  </p>
+                  {card.citations.map((citation) => (
+                    <a
+                      key={`${citation.platform}-${citation.url}`}
+                      href={citation.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 hover:bg-white"
+                    >
+                      <span className="mr-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        [{citation.platform}]
+                      </span>
+                      {citation.title}
+                    </a>
+                  ))}
+                </div>
+              ) : null}
+            </article>
+          ))}
+        </div>
+
+        {evidenceLocked ? <LockedOverlay title="Evidence-first cards" /> : null}
       </section>
 
       <section className="space-y-4">
@@ -756,34 +876,36 @@ export function AnalysisDashboard({
 
       <section className="relative space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold text-slate-950">Content Engine</h3>
+          <h3 className="text-xl font-bold text-slate-950">Content Angle Engine</h3>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            YouTube, Twitter, TikTok hooks
+            Bold angles with resonance forecasts
           </p>
         </div>
 
         <div className={`grid gap-4 lg:grid-cols-3 ${contentLocked ? "pointer-events-none blur-[2px]" : ""}`}>
-          {(analysis.contentIdeas.length > 0
-            ? analysis.contentIdeas.slice(0, 9)
-            : [
-                {
-                  title: "Content ideas locked",
-                  format: "youtube",
-                  hook: "Upgrade to unlock discourse-backed content hooks.",
-                  angle: "Paid plans get full content engine output.",
-                },
-              ]
-          ).map((idea) => (
-            <article key={`${idea.format}-${idea.title}`} className="rounded-2xl border border-slate-200 bg-white p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{idea.format}</p>
-              <h4 className="mt-1 text-base font-semibold text-slate-900">{idea.title}</h4>
-              <p className="mt-2 text-sm leading-6 text-slate-700">{idea.hook}</p>
-              <p className="mt-2 text-xs text-slate-500">Angle: {idea.angle}</p>
+          {contentAngleItems.map((angle, index) => (
+            <article key={`${angle.channel}-${angle.title}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {angle.channel}
+                </p>
+                <span
+                  className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${resonanceTone(
+                    angle.resonanceScore,
+                  )}`}
+                >
+                  Resonance {angle.resonanceScore}
+                </span>
+              </div>
+              <h4 className="mt-2 text-base font-semibold text-slate-900">{angle.title}</h4>
+              <p className="mt-2 text-sm leading-6 text-slate-700">{angle.hook}</p>
+              <p className="mt-2 text-xs text-slate-500">Audience: {angle.targetAudience}</p>
+              <p className="mt-1 text-xs text-slate-500">Why it should work: {angle.rationale}</p>
             </article>
           ))}
         </div>
 
-        {contentLocked ? <LockedOverlay title="Content engine" /> : null}
+        {contentLocked ? <LockedOverlay title="Content angle engine" /> : null}
       </section>
 
       <section className="glass-panel relative rounded-3xl p-6">

@@ -122,6 +122,29 @@ export interface ActionSimulation {
   recommendation: string;
 }
 
+export interface EvidenceCitation {
+  title: string;
+  url: string;
+  platform: Platform;
+  source: string;
+}
+
+export interface EvidenceInsightCard {
+  claim: string;
+  confidence: number;
+  uncertainty: string;
+  citations: EvidenceCitation[];
+}
+
+export interface ContentAngleForecast {
+  title: string;
+  channel: "youtube" | "twitter" | "tiktok" | "linkedin" | "newsletter";
+  targetAudience: string;
+  resonanceScore: number;
+  hook: string;
+  rationale: string;
+}
+
 export interface ContentIdea {
   title: string;
   format: "youtube" | "twitter" | "tiktok";
@@ -182,6 +205,8 @@ export interface AnalysisResult {
   contrarianRadar: ContrarianRadarSignal[];
   sourceCredibility: SourceCredibilityInsight[];
   actionSimulator: ActionSimulation[];
+  evidenceCards: EvidenceInsightCard[];
+  contentAngleEngine: ContentAngleForecast[];
   contentIdeas: ContentIdea[];
   sentimentOverview: SentimentOverview;
   sampleSources: SourcePreview[];
